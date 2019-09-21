@@ -3,3 +3,6 @@
 
 data/*
 !data/.gitkeep
+
+states/*
+!states/.gitkeep
