@@ -1,2 +1,5 @@
 .venv/
 *.pt
+
+data/*
+!data/.gitkeep
