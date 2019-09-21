@@ -21,30 +21,9 @@ from torchvision import transforms
 from torchvision.models import alexnet
 from torchvision.ops import nms, roi_pool
 
-### Set the seed
-
-seed = 61
-random.seed(seed)
-os.environ["PYTHONHASHSEED"] = str(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-
-
-### Define the device
-
+# Some constants
+SEED = 61
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-### Set the hyperparameters
-
-LR = 1e-5
-WD = 5e-4
-BS = 1
-EPOCHS = 40
-OFFSET = 0
-
 SCALES = [480, 576, 688, 864, 1200]
 TRANSFORMS = transforms.Compose(
     [
@@ -54,9 +33,7 @@ TRANSFORMS = transforms.Compose(
 )
 
 
-### Utils
-
-
+# Utils
 def hflip(img, boxes, gt_boxes=None):
     img = T.flip(img, y_flip=False, x_flip=True)
     boxes = T.flip_bbox(boxes, img[0].shape, y_flip=False, x_flip=True)
@@ -84,9 +61,6 @@ def swap_axes(boxes):
 def np2gpu(arr):
     arr = np.expand_dims(arr, axis=0)
     return torch.from_numpy(arr).to(DEVICE)
-
-
-### Create dataset and data loader
 
 
 class VOCandMCG(Dataset):
@@ -224,16 +198,6 @@ class VOCandMCG(Dataset):
         return len(self.ids)
 
 
-train_ds = VOCandMCG("trainval")
-test_ds = VOCandMCG("test")
-
-train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
-test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
-
-
-### Create the network
-
-
 class WSDDN(nn.Module):
     base = alexnet(pretrained=False)
 
@@ -262,22 +226,6 @@ class WSDDN(nn.Module):
         return combined_scores, batch_boxes[0]
 
 
-if OFFSET == 0:
-    net = WSDDN()
-else:
-    net = torch.load(f"states/epoch_{OFFSET}.pt")
-
-net.to(DEVICE)
-net.train()
-
-
-### Set loss function and optimizer
-
-optimizer = optim.Adam(net.parameters(), lr=LR, weight_decay=WD)
-scheduler = MultiStepLR(optimizer, milestones=[10, 20, 30], gamma=0.3)
-scheduler.last_epoch = OFFSET
-
-
 def loss_func(combined_scores, target):
     image_level_scores = torch.sum(combined_scores, dim=0)
     image_level_scores = torch.clamp(image_level_scores, min=0.0, max=1.0)
@@ -285,127 +233,169 @@ def loss_func(combined_scores, target):
     return loss
 
 
-### Train the model
+if __name__ == "__main__":
+    # Set the seed
+    random.seed(SEED)
+    os.environ["PYTHONHASHSEED"] = str(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.backends.cudnn.deterministic = True
 
-for epoch in range(OFFSET + 1, EPOCHS + 1):
+    # Set the hyperparameters
+    LR = 1e-5
+    WD = 5e-4
+    EPOCHS = 40
+    OFFSET = 0
 
-    print("Epoch", epoch, "started at", datetime.now(), "with lr =", scheduler.get_lr())
+    # Create dataset and data loader
+    train_ds = VOCandMCG("trainval")
+    test_ds = VOCandMCG("test")
 
-    epoch_loss = 0.0
+    train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
+    test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
 
-    for (batch_imgs, batch_boxes, batch_scores, batch_target) in train_dl:
-        optimizer.zero_grad()
+    # Create the network
+    if OFFSET == 0:
+        net = WSDDN()
+    else:
+        net = torch.load(f"states/epoch_{OFFSET}.pt")
 
-        batch_imgs, batch_boxes, batch_scores, batch_target = (
-            batch_imgs.to(DEVICE),
-            batch_boxes.to(DEVICE),
-            batch_scores.to(DEVICE),
-            batch_target.to(DEVICE),
+    net.to(DEVICE)
+    net.train()
+
+    # Set loss function and optimizer
+    optimizer = optim.Adam(net.parameters(), lr=LR, weight_decay=WD)
+    scheduler = MultiStepLR(optimizer, milestones=[10, 20, 30], gamma=0.3)
+    scheduler.last_epoch = OFFSET
+
+    # Train the model
+    for epoch in range(OFFSET + 1, EPOCHS + 1):
+
+        print(
+            "Epoch",
+            epoch,
+            "started at",
+            datetime.now(),
+            "with lr =",
+            scheduler.get_lr(),
         )
-        combined_scores, _ = net(batch_imgs, batch_boxes, batch_scores)
 
-        loss = loss_func(combined_scores, batch_target[0])
-        epoch_loss += loss.item()
-        loss.backward()
+        epoch_loss = 0.0
 
-        optimizer.step()
+        for (batch_imgs, batch_boxes, batch_scores, batch_target) in train_dl:
+            optimizer.zero_grad()
 
-    torch.save(net, f"states/epoch_{epoch}.pt")
+            batch_imgs, batch_boxes, batch_scores, batch_target = (
+                batch_imgs.to(DEVICE),
+                batch_boxes.to(DEVICE),
+                batch_scores.to(DEVICE),
+                batch_target.to(DEVICE),
+            )
+            combined_scores, _ = net(batch_imgs, batch_boxes, batch_scores)
 
-    print("Avg loss is", epoch_loss / len(train_ds))
+            loss = loss_func(combined_scores, batch_target[0])
+            epoch_loss += loss.item()
+            loss.backward()
 
-    if epoch % 5 == 0:
-        print("Evaluation started at", datetime.now())
+            optimizer.step()
 
-        with torch.no_grad():
-            net.eval()
+        torch.save(net, f"states/epoch_{epoch}.pt")
 
-            aps = []
-            maps = []
+        print("Avg loss is", epoch_loss / len(train_ds))
 
-            for max_dim in SCALES:
+        if epoch % 5 == 0:
+            print("Evaluation started at", datetime.now())
 
-                for xflip in [True, False]:
-                    total_pred_boxes = []
-                    total_pred_scores = []
-                    total_pred_labels = []
-                    total_gt_boxes = []
-                    total_gt_labels = []
+            with torch.no_grad():
+                net.eval()
 
-                    for (img, boxes, scores, gt_boxes, gt_labels) in test_dl:
-                        boxes, scores, gt_boxes, gt_labels = (
-                            boxes.numpy(),
-                            scores.numpy(),
-                            gt_boxes.numpy(),
-                            gt_labels.numpy(),
-                        )
-                        p_img, p_boxes, p_gt_boxes = VOCandMCG.prepare(
-                            img, boxes, max_dim, xflip, gt_boxes
-                        )
+                aps = []
+                maps = []
 
-                        batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                            np2gpu(p_img),
-                            np2gpu(p_boxes),
-                            np2gpu(scores),
-                            np2gpu(p_gt_boxes),
-                            np2gpu(gt_labels),
-                        )
-                        combined_scores, pred_boxes = net(
-                            batch_imgs, batch_boxes, batch_scores
-                        )
-                        pred_scores, pred_labels = torch.max(combined_scores, dim=1)
+                for max_dim in SCALES:
 
-                        batch_pred_boxes = []
-                        batch_pred_scores = []
-                        batch_pred_labels = []
+                    for xflip in [True, False]:
+                        total_pred_boxes = []
+                        total_pred_scores = []
+                        total_pred_labels = []
+                        total_gt_boxes = []
+                        total_gt_labels = []
 
-                        for i in range(20):
-                            region_scores = combined_scores[:, i]
-
-                            selected_indices = nms(pred_boxes, region_scores, 0.4)
-
-                            batch_pred_boxes.append(
-                                pred_boxes[selected_indices].cpu().numpy()
+                        for (img, boxes, scores, gt_boxes, gt_labels) in test_dl:
+                            boxes, scores, gt_boxes, gt_labels = (
+                                boxes.numpy(),
+                                scores.numpy(),
+                                gt_boxes.numpy(),
+                                gt_labels.numpy(),
                             )
-                            batch_pred_scores.append(
-                                region_scores[selected_indices].cpu().numpy()
-                            )
-                            batch_pred_labels.append(
-                                np.full(len(selected_indices), i, dtype=np.int32)
+                            p_img, p_boxes, p_gt_boxes = VOCandMCG.prepare(
+                                img, boxes, max_dim, xflip, gt_boxes
                             )
 
-                        total_pred_boxes.append(
-                            np.concatenate(batch_pred_boxes, axis=0)
+                            batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
+                                np2gpu(p_img),
+                                np2gpu(p_boxes),
+                                np2gpu(scores),
+                                np2gpu(p_gt_boxes),
+                                np2gpu(gt_labels),
+                            )
+                            combined_scores, pred_boxes = net(
+                                batch_imgs, batch_boxes, batch_scores
+                            )
+                            pred_scores, pred_labels = torch.max(combined_scores, dim=1)
+
+                            batch_pred_boxes = []
+                            batch_pred_scores = []
+                            batch_pred_labels = []
+
+                            for i in range(20):
+                                region_scores = combined_scores[:, i]
+
+                                selected_indices = nms(pred_boxes, region_scores, 0.4)
+
+                                batch_pred_boxes.append(
+                                    pred_boxes[selected_indices].cpu().numpy()
+                                )
+                                batch_pred_scores.append(
+                                    region_scores[selected_indices].cpu().numpy()
+                                )
+                                batch_pred_labels.append(
+                                    np.full(len(selected_indices), i, dtype=np.int32)
+                                )
+
+                            total_pred_boxes.append(
+                                np.concatenate(batch_pred_boxes, axis=0)
+                            )
+                            total_pred_scores.append(
+                                np.concatenate(batch_pred_scores, axis=0)
+                            )
+                            total_pred_labels.append(
+                                np.concatenate(batch_pred_labels, axis=0)
+                            )
+                            total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
+                            total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
+
+                        result = eval_detection_voc(
+                            total_pred_boxes,
+                            total_pred_labels,
+                            total_pred_scores,
+                            total_gt_boxes,
+                            total_gt_labels,
+                            iou_thresh=0.5,
+                            use_07_metric=True,
                         )
-                        total_pred_scores.append(
-                            np.concatenate(batch_pred_scores, axis=0)
-                        )
-                        total_pred_labels.append(
-                            np.concatenate(batch_pred_labels, axis=0)
-                        )
-                        total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
-                        total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
+                        aps.append(result["ap"])
+                        maps.append(result["map"])
 
-                    result = eval_detection_voc(
-                        total_pred_boxes,
-                        total_pred_labels,
-                        total_pred_scores,
-                        total_gt_boxes,
-                        total_gt_labels,
-                        iou_thresh=0.5,
-                        use_07_metric=True,
-                    )
-                    aps.append(result["ap"])
-                    maps.append(result["map"])
+                aps = np.stack(aps)
+                maps = np.array(maps)
 
-            aps = np.stack(aps)
-            maps = np.array(maps)
+                print("Avg ap:", np.mean(aps, axis=0))
+                print("Avg map:", np.mean(maps))
 
-            print("Avg ap:", np.mean(aps, axis=0))
-            print("Avg map:", np.mean(maps))
+                net.train()
 
-            net.train()
+        print("Epoch", epoch, "completed at", datetime.now(), "\n")
 
-    print("Epoch", epoch, "completed at", datetime.now(), "\n")
-
-    scheduler.step()
+        scheduler.step()
