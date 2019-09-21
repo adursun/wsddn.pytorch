@@ -1,34 +1,25 @@
 import os
 import random
-
+import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from PIL import Image
-
-import xml.etree.ElementTree as ET
-
+import chainercv.transforms as T
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-from scipy.io import loadmat
-
-from torch import nn, optim
-from torch.utils.data import Dataset, DataLoader
-from torch.optim.lr_scheduler import MultiStepLR
-
-from IPython.display import display
-
 import torchvision
+from chainercv.evaluations import eval_detection_voc
+from chainercv.visualizations import vis_bbox
+from IPython.display import display
+from PIL import Image
+from scipy.io import loadmat
+from torch import nn, optim
+from torch.optim.lr_scheduler import MultiStepLR
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.models import alexnet
-from torchvision.ops import roi_pool, nms
-
-from chainercv.evaluations import eval_detection_voc
-import chainercv.transforms as T
-from chainercv.visualizations import vis_bbox
-
+from torchvision.ops import nms, roi_pool
 
 ### Set the seed
 
@@ -55,13 +46,16 @@ EPOCHS = 40
 OFFSET = 0
 
 SCALES = [480, 576, 688, 864, 1200]
-TRANSFORMS = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+TRANSFORMS = transforms.Compose(
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
 
 
 ### Utils
+
 
 def hflip(img, boxes, gt_boxes=None):
     img = T.flip(img, y_flip=False, x_flip=True)
@@ -83,7 +77,7 @@ def scale(img, boxes, max_dim, gt_boxes=None):
 
 
 def swap_axes(boxes):
-    boxes = np.stack((boxes[:,1], boxes[:,0], boxes[:,3], boxes[:,2]), axis=1)
+    boxes = np.stack((boxes[:, 1], boxes[:, 0], boxes[:, 3], boxes[:, 2]), axis=1)
     return boxes
 
 
@@ -93,6 +87,7 @@ def np2gpu(arr):
 
 
 ### Create dataset and data loader
+
 
 class VOCandMCG(Dataset):
 
@@ -122,14 +117,16 @@ class VOCandMCG(Dataset):
     def __init__(self, split):
         self.split = split
 
-        #loaded_mat = loadmat(f"/kaggle/input/selective-search-windows/selective_search_data/voc_2007_{self.split}.mat")
+        # loaded_mat = loadmat(f"/kaggle/input/selective-search-windows/selective_search_data/voc_2007_{self.split}.mat")
         loaded_mat = loadmat(f"data/selective_search_data/voc_2007_{self.split}.mat")
         self.ssw_boxes = loaded_mat["boxes"][0]
         self.ssw_scores = loaded_mat["boxScores"][0]
 
-        #voc_dir = f"/kaggle/input/pascal-voc/voc{self.split}_06-nov-2007/VOCdevkit/VOC2007"
+        # voc_dir = f"/kaggle/input/pascal-voc/voc{self.split}_06-nov-2007/VOCdevkit/VOC2007"
         voc_dir = f"data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
-        self.ids = [id_.strip() for id_ in open(f"{voc_dir}/ImageSets/Main/{self.split}.txt")]
+        self.ids = [
+            id_.strip() for id_ in open(f"{voc_dir}/ImageSets/Main/{self.split}.txt")
+        ]
         self.img_paths = [f"{voc_dir}/JPEGImages/{id_}.jpg" for id_ in self.ids]
         self.annotation_paths = [f"{voc_dir}/Annotations/{id_}.xml" for id_ in self.ids]
 
@@ -165,7 +162,12 @@ class VOCandMCG(Dataset):
         for obj in xml.findall("object"):
             if obj.find("difficult").text == "0":
                 bndbox = obj.find("bndbox")
-                boxes.append([int(bndbox.find(tag).text) - 1 for tag in ("xmin", "ymin", "xmax", "ymax")])
+                boxes.append(
+                    [
+                        int(bndbox.find(tag).text) - 1
+                        for tag in ("xmin", "ymin", "xmax", "ymax")
+                    ]
+                )
                 labels.append(self.CLASS2ID[obj.find("name").text])
 
         boxes = np.stack(boxes).astype(np.float32)
@@ -174,8 +176,8 @@ class VOCandMCG(Dataset):
 
     @staticmethod
     def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None):
-        img = np.asarray(img, dtype=np.float32) # use numpy array for augmentation
-        img = np.transpose(img, (2, 0, 1)) # convert img to CHW
+        img = np.asarray(img, dtype=np.float32)  # use numpy array for augmentation
+        img = np.transpose(img, (2, 0, 1))  # convert img to CHW
 
         # convert boxes into (ymin, xmin, ymax, xmax) format
         boxes = swap_axes(boxes)
@@ -199,12 +201,12 @@ class VOCandMCG(Dataset):
 
         # convert img from CHW to HWC
         img = Image.fromarray(np.transpose(img, (1, 2, 0)).astype(np.uint8), mode="RGB")
-        img = TRANSFORMS(img) # convert pillow image to normalized tensor
+        img = TRANSFORMS(img)  # convert pillow image to normalized tensor
 
         return img, boxes, gt_boxes
 
     def __getitem__(self, i):
-        img = Image.open(self.img_paths[i]).convert("RGB") # open Pillow image
+        img = Image.open(self.img_paths[i]).convert("RGB")  # open Pillow image
 
         boxes, scores = self.get_boxes_and_scores(i)
         gt_boxes, gt_labels = self._get_annotations(i)
@@ -212,7 +214,9 @@ class VOCandMCG(Dataset):
         if self.split == "test":
             return img, boxes, scores, gt_boxes, gt_labels
 
-        img, boxes, _ = self.prepare(img, boxes, random.choice(SCALES), random.choice([False, True]))
+        img, boxes, _ = self.prepare(
+            img, boxes, random.choice(SCALES), random.choice([False, True])
+        )
         target = self.get_target(gt_labels)
         return img, boxes, scores, target
 
@@ -229,6 +233,7 @@ test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
 
 ### Create the network
 
+
 class WSDDN(nn.Module):
     base = alexnet(pretrained=False)
 
@@ -244,11 +249,11 @@ class WSDDN(nn.Module):
         # assume batch size is 1
         batch_boxes = [batch_boxes[0]]
 
-        out = self.features(batch_imgs) # [1, 256, 21, 29]
-        out = roi_pool(out, batch_boxes, (6, 6), 1.0/16) # [4000, 256, 6, 6]
+        out = self.features(batch_imgs)  # [1, 256, 21, 29]
+        out = roi_pool(out, batch_boxes, (6, 6), 1.0 / 16)  # [4000, 256, 6, 6]
 
-        out = out.view(-1, 9216) # [4000, 9216]
-        out = self.fcs(out) # [4000, 4096]
+        out = out.view(-1, 9216)  # [4000, 9216]
+        out = self.fcs(out)  # [4000, 4096]
 
         classification_scores = F.softmax(self.fc_c(out), dim=1)
         detection_scores = F.softmax(self.fc_d(out), dim=0)
@@ -291,7 +296,12 @@ for epoch in range(OFFSET + 1, EPOCHS + 1):
     for (batch_imgs, batch_boxes, batch_scores, batch_target) in train_dl:
         optimizer.zero_grad()
 
-        batch_imgs, batch_boxes, batch_scores, batch_target = batch_imgs.to(DEVICE), batch_boxes.to(DEVICE), batch_scores.to(DEVICE), batch_target.to(DEVICE)
+        batch_imgs, batch_boxes, batch_scores, batch_target = (
+            batch_imgs.to(DEVICE),
+            batch_boxes.to(DEVICE),
+            batch_scores.to(DEVICE),
+            batch_target.to(DEVICE),
+        )
         combined_scores, _ = net(batch_imgs, batch_boxes, batch_scores)
 
         loss = loss_func(combined_scores, batch_target[0])
@@ -323,11 +333,26 @@ for epoch in range(OFFSET + 1, EPOCHS + 1):
                     total_gt_labels = []
 
                     for (img, boxes, scores, gt_boxes, gt_labels) in test_dl:
-                        boxes, scores, gt_boxes, gt_labels = boxes.numpy(), scores.numpy(), gt_boxes.numpy(), gt_labels.numpy()
-                        p_img, p_boxes, p_gt_boxes = VOCandMCG.prepare(img, boxes, max_dim, xflip, gt_boxes)
+                        boxes, scores, gt_boxes, gt_labels = (
+                            boxes.numpy(),
+                            scores.numpy(),
+                            gt_boxes.numpy(),
+                            gt_labels.numpy(),
+                        )
+                        p_img, p_boxes, p_gt_boxes = VOCandMCG.prepare(
+                            img, boxes, max_dim, xflip, gt_boxes
+                        )
 
-                        batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = np2gpu(p_img), np2gpu(p_boxes), np2gpu(scores), np2gpu(p_gt_boxes), np2gpu(gt_labels)
-                        combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
+                        batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
+                            np2gpu(p_img),
+                            np2gpu(p_boxes),
+                            np2gpu(scores),
+                            np2gpu(p_gt_boxes),
+                            np2gpu(gt_labels),
+                        )
+                        combined_scores, pred_boxes = net(
+                            batch_imgs, batch_boxes, batch_scores
+                        )
                         pred_scores, pred_labels = torch.max(combined_scores, dim=1)
 
                         batch_pred_boxes = []
@@ -339,17 +364,37 @@ for epoch in range(OFFSET + 1, EPOCHS + 1):
 
                             selected_indices = nms(pred_boxes, region_scores, 0.4)
 
-                            batch_pred_boxes.append(pred_boxes[selected_indices].cpu().numpy())
-                            batch_pred_scores.append(region_scores[selected_indices].cpu().numpy())
-                            batch_pred_labels.append(np.full(len(selected_indices), i, dtype=np.int32))
+                            batch_pred_boxes.append(
+                                pred_boxes[selected_indices].cpu().numpy()
+                            )
+                            batch_pred_scores.append(
+                                region_scores[selected_indices].cpu().numpy()
+                            )
+                            batch_pred_labels.append(
+                                np.full(len(selected_indices), i, dtype=np.int32)
+                            )
 
-                        total_pred_boxes.append(np.concatenate(batch_pred_boxes, axis=0))
-                        total_pred_scores.append(np.concatenate(batch_pred_scores, axis=0))
-                        total_pred_labels.append(np.concatenate(batch_pred_labels, axis=0))
+                        total_pred_boxes.append(
+                            np.concatenate(batch_pred_boxes, axis=0)
+                        )
+                        total_pred_scores.append(
+                            np.concatenate(batch_pred_scores, axis=0)
+                        )
+                        total_pred_labels.append(
+                            np.concatenate(batch_pred_labels, axis=0)
+                        )
                         total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
                         total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
 
-                    result = eval_detection_voc(total_pred_boxes, total_pred_labels, total_pred_scores, total_gt_boxes, total_gt_labels, iou_thresh=0.5, use_07_metric=True)
+                    result = eval_detection_voc(
+                        total_pred_boxes,
+                        total_pred_labels,
+                        total_pred_scores,
+                        total_gt_boxes,
+                        total_gt_labels,
+                        iou_thresh=0.5,
+                        use_07_metric=True,
+                    )
                     aps.append(result["ap"])
                     maps.append(result["map"])
 
