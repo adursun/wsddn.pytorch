@@ -91,13 +91,11 @@ class VOCandMCG(Dataset):
     def __init__(self, split):
         self.split = split
 
-        # loaded_mat = loadmat(f"/kaggle/input/selective-search-windows/selective_search_data/voc_2007_{self.split}.mat")
-        loaded_mat = loadmat(f"data/selective_search_data/voc_2007_{self.split}.mat")
+        loaded_mat = loadmat(f"../data/selective_search_data/voc_2007_{self.split}.mat")
         self.ssw_boxes = loaded_mat["boxes"][0]
         self.ssw_scores = loaded_mat["boxScores"][0]
 
-        # voc_dir = f"/kaggle/input/pascal-voc/voc{self.split}_06-nov-2007/VOCdevkit/VOC2007"
-        voc_dir = f"data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
+        voc_dir = f"../data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
         self.ids = [
             id_.strip() for id_ in open(f"{voc_dir}/ImageSets/Main/{self.split}.txt")
         ]
@@ -203,7 +201,7 @@ class WSDDN(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.base.load_state_dict(torch.load("states/alexnet-owt-4df8aa71.pth"))
+        self.base.load_state_dict(torch.load("../states/alexnet-owt-4df8aa71.pth"))
         self.features = self.base.features[:-1]
         self.fcs = self.base.classifier[1:-1]
         self.fc_c = nn.Linear(4096, 20)

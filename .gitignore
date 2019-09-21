@@ -1,5 +1,5 @@
 .venv/
-*.pt
+__pycache__/
 
 data/*
 !data/.gitkeep

@@ -14,5 +14,6 @@ docker run --gpus all -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 
 ## Training Steps
 ```
+cd src
 python3 wsddn-pytorch.py
 ```
