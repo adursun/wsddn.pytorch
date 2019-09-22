@@ -138,7 +138,7 @@ class VOCandMCG(Dataset):
             img, boxes, gt_boxes = hflip(img, boxes, gt_boxes)
 
         # convert boxes back to (xmin, ymin, xmax, ymax) format
-        boxes = boxes = swap_axes(boxes)
+        boxes = swap_axes(boxes)
 
         if gt_boxes is not None:
             gt_boxes = swap_axes(gt_boxes)
