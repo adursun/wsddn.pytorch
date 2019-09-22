@@ -21,6 +21,8 @@ from torchvision import transforms
 from torchvision.models import alexnet
 from torchvision.ops import nms, roi_pool
 
+from utils import hflip, np2gpu, scale, swap_axes
+
 # Some constants
 SEED = 61
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -31,36 +33,6 @@ TRANSFORMS = transforms.Compose(
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
 )
-
-
-# Utils
-def hflip(img, boxes, gt_boxes=None):
-    img = T.flip(img, y_flip=False, x_flip=True)
-    boxes = T.flip_bbox(boxes, img[0].shape, y_flip=False, x_flip=True)
-    if gt_boxes is None:
-        return img, boxes, None
-    gt_boxes = T.flip_bbox(gt_boxes, img[0].shape, y_flip=False, x_flip=True)
-    return img, boxes, gt_boxes
-
-
-def scale(img, boxes, max_dim, gt_boxes=None):
-    initial_size = img[0].shape
-    img = T.scale(img, max_dim, fit_short=False)
-    boxes = T.resize_bbox(boxes, initial_size, img[0].shape)
-    if gt_boxes is None:
-        return img, boxes, None
-    gt_boxes = T.resize_bbox(gt_boxes, initial_size, img[0].shape)
-    return img, boxes, gt_boxes
-
-
-def swap_axes(boxes):
-    boxes = np.stack((boxes[:, 1], boxes[:, 0], boxes[:, 3], boxes[:, 2]), axis=1)
-    return boxes
-
-
-def np2gpu(arr):
-    arr = np.expand_dims(arr, axis=0)
-    return torch.from_numpy(arr).to(DEVICE)
 
 
 class VOCandMCG(Dataset):
@@ -332,11 +304,11 @@ if __name__ == "__main__":
                             )
 
                             batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                                np2gpu(p_img),
-                                np2gpu(p_boxes),
-                                np2gpu(scores),
-                                np2gpu(p_gt_boxes),
-                                np2gpu(gt_labels),
+                                np2gpu(p_img, DEVICE),
+                                np2gpu(p_boxes, DEVICE),
+                                np2gpu(scores, DEVICE),
+                                np2gpu(p_gt_boxes, DEVICE),
+                                np2gpu(gt_labels, DEVICE),
                             )
                             combined_scores, pred_boxes = net(
                                 batch_imgs, batch_boxes, batch_scores
