@@ -229,7 +229,7 @@ if __name__ == "__main__":
     if OFFSET == 0:
         net = WSDDN()
     else:
-        net = torch.load(f"states/epoch_{OFFSET}.pt")
+        net = torch.load(f"../states/epoch_{OFFSET}.pt")
 
     net.to(DEVICE)
     net.train()
@@ -270,7 +270,7 @@ if __name__ == "__main__":
 
             optimizer.step()
 
-        torch.save(net, f"states/epoch_{epoch}.pt")
+        torch.save(net, f"../states/epoch_{epoch}.pt")
 
         print("Avg loss is", epoch_loss / len(train_ds))
 
