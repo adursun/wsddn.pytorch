@@ -165,7 +165,7 @@ class VOCandSSW(Dataset):
         return img, boxes, scores, target
 
     def __len__(self):
-        return 100#len(self.ids)
+        return len(self.ids)
 
 
 class WSDDN(nn.Module):
