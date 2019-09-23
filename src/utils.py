@@ -1,5 +1,6 @@
 import chainercv.transforms as T
 import numpy as np
+import torch
 
 
 def hflip(img, boxes, gt_boxes=None):
