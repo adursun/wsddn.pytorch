@@ -35,7 +35,7 @@ TRANSFORMS = transforms.Compose(
 )
 
 
-class VOCandMCG(Dataset):
+class VOCandSSW(Dataset):
 
     CLASS2ID = {
         "aeroplane": 0,
@@ -165,7 +165,7 @@ class VOCandMCG(Dataset):
         return img, boxes, scores, target
 
     def __len__(self):
-        return len(self.ids)
+        return 100#len(self.ids)
 
 
 class WSDDN(nn.Module):
@@ -219,8 +219,8 @@ if __name__ == "__main__":
     OFFSET = 0
 
     # Create dataset and data loader
-    train_ds = VOCandMCG("trainval")
-    test_ds = VOCandMCG("test")
+    train_ds = VOCandSSW("trainval")
+    test_ds = VOCandSSW("test")
 
     train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
@@ -299,7 +299,7 @@ if __name__ == "__main__":
                                 gt_boxes.numpy(),
                                 gt_labels.numpy(),
                             )
-                            p_img, p_boxes, p_gt_boxes = VOCandMCG.prepare(
+                            p_img, p_boxes, p_gt_boxes = VOCandSSW.prepare(
                                 img, boxes, max_dim, xflip, gt_boxes
                             )
 
