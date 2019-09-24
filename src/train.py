@@ -228,8 +228,10 @@ if __name__ == "__main__":
     # Create the network
     if OFFSET == 0:
         net = WSDDN()
+        print("Training started from the beginning.")
     else:
         net = torch.load(f"../states/epoch_{OFFSET}.pt")
+        print(f"Loaded epoch {OFFSET}'s state.")
 
     net.to(DEVICE)
     net.train()
