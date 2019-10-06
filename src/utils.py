@@ -3,6 +3,22 @@ import numpy as np
 import torch
 
 
+def unique_boxes(boxes, scale=1.0):
+    """Returns indices of unique boxes."""
+    v = np.array([1, 1e3, 1e6, 1e9])
+    hashes = np.round(boxes * scale).dot(v)
+    _, index = np.unique(hashes, return_index=True)
+    return np.sort(index)
+
+
+def filter_small_boxes(boxes, min_size):
+    """Filters out small boxes."""
+    w = boxes[:, 2] - boxes[:, 0]
+    h = boxes[:, 3] - boxes[:, 1]
+    keep = np.where((w >= min_size) & (h > min_size))[0]
+    return keep
+
+
 def hflip(img, boxes, gt_boxes=None):
     """Flips image and related boxes horizontally."""
     img = T.flip(img, y_flip=False, x_flip=True, copy=True)
