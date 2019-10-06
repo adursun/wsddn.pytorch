@@ -1,4 +1,5 @@
 .venv/
+.vscode/
 __pycache__/
 
 data/*
@@ -6,3 +7,8 @@ data/*
 
 states/*
 !states/.gitkeep
+
+# Added for Python Pascal VOC Evaluator
+detections/
+groundtruths/
+tester/
