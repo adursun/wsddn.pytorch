@@ -21,7 +21,8 @@ from torchvision import transforms
 from torchvision.models import alexnet
 from torchvision.ops import nms, roi_pool
 
-from utils import hflip, np2gpu, scale, swap_axes
+from utils import (filter_small_boxes, hflip, np2gpu, scale, swap_axes,
+                   unique_boxes)
 
 # Some constants
 SEED = 61
@@ -90,7 +91,7 @@ class VOCandSSW(Dataset):
         return boxes, scores
 
     def get_target(self, gt_labels):
-        target = np.full(20, -1.0, dtype=np.float32)
+        target = np.full(20, 0, dtype=np.float32)
 
         for label in gt_labels:
             target[label] = 1.0
@@ -104,7 +105,7 @@ class VOCandSSW(Dataset):
         labels = []
 
         for obj in xml.findall("object"):
-            if obj.find("difficult").text == "0":
+            if obj.find("difficult").text != "1":
                 bndbox = obj.find("bndbox")
                 boxes.append(
                     [
@@ -199,7 +200,7 @@ class WSDDN(nn.Module):
 def loss_func(combined_scores, target):
     image_level_scores = torch.sum(combined_scores, dim=0)
     image_level_scores = torch.clamp(image_level_scores, min=0.0, max=1.0)
-    loss = -torch.sum(torch.log(target * (image_level_scores - 0.5) + 0.50001))
+    loss = F.binary_cross_entropy(image_level_scores, target, reduction="sum")
     return loss
 
 
@@ -219,8 +220,8 @@ if __name__ == "__main__":
     OFFSET = 0
 
     # Create dataset and data loader
-    train_ds = VOCandSSW("trainval")
-    test_ds = VOCandSSW("test")
+    train_ds = VOCandSSW("trainval")  # len = 5011
+    test_ds = VOCandSSW("test")  # len = 4952
 
     train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
@@ -276,7 +277,7 @@ if __name__ == "__main__":
 
         print("Avg loss is", epoch_loss / len(train_ds))
 
-        if epoch % 5 == 0:
+        if epoch % 10 == 0:
             print("Evaluation started at", datetime.now())
 
             with torch.no_grad():
@@ -301,6 +302,13 @@ if __name__ == "__main__":
                                 gt_boxes.numpy(),
                                 gt_labels.numpy(),
                             )
+
+                            keep = unique_boxes(boxes)
+                            boxes = boxes[keep, :]
+
+                            keep = filter_small_boxes(boxes, 2)
+                            boxes = boxes[keep, :]
+
                             p_img, p_boxes, p_gt_boxes = VOCandSSW.prepare(
                                 img, boxes, max_dim, xflip, gt_boxes
                             )
@@ -315,7 +323,11 @@ if __name__ == "__main__":
                             combined_scores, pred_boxes = net(
                                 batch_imgs, batch_boxes, batch_scores
                             )
-                            pred_scores, pred_labels = torch.max(combined_scores, dim=1)
+                            # pred_scores, pred_labels = torch.max(combined_scores, dim=1)
+
+                            img_thresh = torch.sort(
+                                combined_scores.view(-1), descending=True
+                            )[0][300]
 
                             batch_pred_boxes = []
                             batch_pred_scores = []
@@ -323,14 +335,22 @@ if __name__ == "__main__":
 
                             for i in range(20):
                                 region_scores = combined_scores[:, i]
+                                filtered_indices = region_scores > img_thresh
 
-                                selected_indices = nms(pred_boxes, region_scores, 0.4)
+                                filtered_region_scores = region_scores[filtered_indices]
+                                filtered_pred_boxes = pred_boxes[filtered_indices]
+
+                                selected_indices = nms(
+                                    filtered_pred_boxes, filtered_region_scores, 0.4
+                                )
 
                                 batch_pred_boxes.append(
-                                    pred_boxes[selected_indices].cpu().numpy()
+                                    filtered_pred_boxes[selected_indices].cpu().numpy()
                                 )
                                 batch_pred_scores.append(
-                                    region_scores[selected_indices].cpu().numpy()
+                                    filtered_region_scores[selected_indices]
+                                    .cpu()
+                                    .numpy()
                                 )
                                 batch_pred_labels.append(
                                     np.full(len(selected_indices), i, dtype=np.int32)
