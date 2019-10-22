@@ -109,4 +109,4 @@ class VOCandSSW(Dataset):
         return img, boxes, scores, target
 
     def __len__(self):
-        return 10  # len(self.ids)
+        return len(self.ids)
