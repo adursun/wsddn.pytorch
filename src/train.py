@@ -2,28 +2,17 @@ import os
 import random
 from datetime import datetime
 
-import chainercv.transforms as T
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-import torchvision
 from torch import nn, optim
 from torch.optim.lr_scheduler import MultiStepLR
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.models import alexnet
 from torchvision.ops import roi_pool
 
 from datasets import VOCandSSW
-from utils import (
-    evaluate,
-    filter_small_boxes,
-    hflip,
-    np2gpu,
-    scale,
-    swap_axes,
-    unique_boxes,
-)
+from utils import evaluate
 
 # Some constants
 SEED = 61
