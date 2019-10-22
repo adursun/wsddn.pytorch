@@ -1,6 +1,5 @@
 import os
 import random
-import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import chainercv.transforms as T
@@ -9,164 +8,27 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision
-from chainercv.evaluations import eval_detection_voc
-from chainercv.visualizations import vis_bbox
-from IPython.display import display
-from PIL import Image
-from scipy.io import loadmat
 from torch import nn, optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
 from torchvision.models import alexnet
-from torchvision.ops import nms, roi_pool
+from torchvision.ops import roi_pool
 
-from utils import (filter_small_boxes, hflip, np2gpu, scale, swap_axes,
-                   unique_boxes)
+from datasets import VOCandSSW
+from utils import (
+    evaluate,
+    filter_small_boxes,
+    hflip,
+    np2gpu,
+    scale,
+    swap_axes,
+    unique_boxes,
+)
 
 # Some constants
 SEED = 61
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SCALES = [480, 576, 688, 864, 1200]
-TRANSFORMS = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ]
-)
-
-
-class VOCandSSW(Dataset):
-
-    CLASS2ID = {
-        "aeroplane": 0,
-        "bicycle": 1,
-        "bird": 2,
-        "boat": 3,
-        "bottle": 4,
-        "bus": 5,
-        "car": 6,
-        "cat": 7,
-        "chair": 8,
-        "cow": 9,
-        "diningtable": 10,
-        "dog": 11,
-        "horse": 12,
-        "motorbike": 13,
-        "person": 14,
-        "pottedplant": 15,
-        "sheep": 16,
-        "sofa": 17,
-        "train": 18,
-        "tvmonitor": 19,
-    }
-
-    def __init__(self, split):
-        self.split = split
-
-        loaded_mat = loadmat(f"../data/selective_search_data/voc_2007_{self.split}.mat")
-        self.ssw_boxes = loaded_mat["boxes"][0]
-        self.ssw_scores = loaded_mat["boxScores"][0]
-
-        voc_dir = f"../data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
-        self.ids = [
-            id_.strip() for id_ in open(f"{voc_dir}/ImageSets/Main/{self.split}.txt")
-        ]
-        self.img_paths = [f"{voc_dir}/JPEGImages/{id_}.jpg" for id_ in self.ids]
-        self.annotation_paths = [f"{voc_dir}/Annotations/{id_}.xml" for id_ in self.ids]
-
-    def get_boxes_and_scores(self, i):
-        # (box_count, 4)
-        # dtype: float32
-        # box format: (y_min, x_min, y_max, x_max)
-        boxes = self.ssw_boxes[i].astype(np.float32)
-
-        # box format: (x_min, y_min, x_max, y_max)
-        # this can be improved
-        boxes = swap_axes(boxes)
-
-        # (box_count, 1)
-        # dtype: float64
-        scores = self.ssw_scores[i]
-        return boxes, scores
-
-    def get_target(self, gt_labels):
-        target = np.full(20, 0, dtype=np.float32)
-
-        for label in gt_labels:
-            target[label] = 1.0
-
-        return target
-
-    def _get_annotations(self, i):
-        xml = ET.parse(self.annotation_paths[i])
-
-        boxes = []
-        labels = []
-
-        for obj in xml.findall("object"):
-            if obj.find("difficult").text != "1":
-                bndbox = obj.find("bndbox")
-                boxes.append(
-                    [
-                        int(bndbox.find(tag).text) - 1
-                        for tag in ("xmin", "ymin", "xmax", "ymax")
-                    ]
-                )
-                labels.append(self.CLASS2ID[obj.find("name").text])
-
-        boxes = np.stack(boxes).astype(np.float32)
-        labels = np.stack(labels).astype(np.int32)
-        return boxes, labels
-
-    @staticmethod
-    def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None):
-        img = np.asarray(img, dtype=np.float32)  # use numpy array for augmentation
-        img = np.transpose(img, (2, 0, 1))  # convert img to CHW
-
-        # convert boxes into (ymin, xmin, ymax, xmax) format
-        boxes = swap_axes(boxes)
-
-        if gt_boxes is not None:
-            gt_boxes = swap_axes(gt_boxes)
-
-        # scale
-        if max_dim:
-            img, boxes, gt_boxes = scale(img, boxes, max_dim, gt_boxes)
-
-        # horizontal flip
-        if xflip:
-            img, boxes, gt_boxes = hflip(img, boxes, gt_boxes)
-
-        # convert boxes back to (xmin, ymin, xmax, ymax) format
-        boxes = swap_axes(boxes)
-
-        if gt_boxes is not None:
-            gt_boxes = swap_axes(gt_boxes)
-
-        # convert img from CHW to HWC
-        img = Image.fromarray(np.transpose(img, (1, 2, 0)).astype(np.uint8), mode="RGB")
-        img = TRANSFORMS(img)  # convert pillow image to normalized tensor
-
-        return img, boxes, gt_boxes
-
-    def __getitem__(self, i):
-        img = Image.open(self.img_paths[i]).convert("RGB")  # open Pillow image
-
-        boxes, scores = self.get_boxes_and_scores(i)
-        gt_boxes, gt_labels = self._get_annotations(i)
-
-        if self.split == "test":
-            return img, boxes, scores, gt_boxes, gt_labels
-
-        img, boxes, _ = self.prepare(
-            img, boxes, random.choice(SCALES), random.choice([False, True])
-        )
-        target = self.get_target(gt_labels)
-        return img, boxes, scores, target
-
-    def __len__(self):
-        return len(self.ids)
 
 
 class WSDDN(nn.Module):
@@ -220,8 +82,8 @@ if __name__ == "__main__":
     OFFSET = 0
 
     # Create dataset and data loader
-    train_ds = VOCandSSW("trainval")  # len = 5011
-    test_ds = VOCandSSW("test")  # len = 4952
+    train_ds = VOCandSSW("trainval", SCALES)  # len = 5011
+    test_ds = VOCandSSW("test", SCALES)  # len = 4952
 
     train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
@@ -277,116 +139,9 @@ if __name__ == "__main__":
 
         print("Avg loss is", epoch_loss / len(train_ds))
 
-        if epoch % 10 == 0:
+        if epoch % 10 == 1:
             print("Evaluation started at", datetime.now())
-
-            with torch.no_grad():
-                net.eval()
-
-                aps = []
-                maps = []
-
-                for max_dim in SCALES:
-
-                    for xflip in [True, False]:
-                        total_pred_boxes = []
-                        total_pred_scores = []
-                        total_pred_labels = []
-                        total_gt_boxes = []
-                        total_gt_labels = []
-
-                        for (img, boxes, scores, gt_boxes, gt_labels) in test_dl:
-                            boxes, scores, gt_boxes, gt_labels = (
-                                boxes.numpy(),
-                                scores.numpy(),
-                                gt_boxes.numpy(),
-                                gt_labels.numpy(),
-                            )
-
-                            keep = unique_boxes(boxes)
-                            boxes = boxes[keep, :]
-
-                            keep = filter_small_boxes(boxes, 2)
-                            boxes = boxes[keep, :]
-
-                            p_img, p_boxes, p_gt_boxes = VOCandSSW.prepare(
-                                img, boxes, max_dim, xflip, gt_boxes
-                            )
-
-                            batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                                np2gpu(p_img, DEVICE),
-                                np2gpu(p_boxes, DEVICE),
-                                np2gpu(scores, DEVICE),
-                                np2gpu(p_gt_boxes, DEVICE),
-                                np2gpu(gt_labels, DEVICE),
-                            )
-                            combined_scores, pred_boxes = net(
-                                batch_imgs, batch_boxes, batch_scores
-                            )
-                            # pred_scores, pred_labels = torch.max(combined_scores, dim=1)
-
-                            img_thresh = torch.sort(
-                                combined_scores.view(-1), descending=True
-                            )[0][300]
-
-                            batch_pred_boxes = []
-                            batch_pred_scores = []
-                            batch_pred_labels = []
-
-                            for i in range(20):
-                                region_scores = combined_scores[:, i]
-                                filtered_indices = region_scores > img_thresh
-
-                                filtered_region_scores = region_scores[filtered_indices]
-                                filtered_pred_boxes = pred_boxes[filtered_indices]
-
-                                selected_indices = nms(
-                                    filtered_pred_boxes, filtered_region_scores, 0.4
-                                )
-
-                                batch_pred_boxes.append(
-                                    filtered_pred_boxes[selected_indices].cpu().numpy()
-                                )
-                                batch_pred_scores.append(
-                                    filtered_region_scores[selected_indices]
-                                    .cpu()
-                                    .numpy()
-                                )
-                                batch_pred_labels.append(
-                                    np.full(len(selected_indices), i, dtype=np.int32)
-                                )
-
-                            total_pred_boxes.append(
-                                np.concatenate(batch_pred_boxes, axis=0)
-                            )
-                            total_pred_scores.append(
-                                np.concatenate(batch_pred_scores, axis=0)
-                            )
-                            total_pred_labels.append(
-                                np.concatenate(batch_pred_labels, axis=0)
-                            )
-                            total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
-                            total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
-
-                        result = eval_detection_voc(
-                            total_pred_boxes,
-                            total_pred_labels,
-                            total_pred_scores,
-                            total_gt_boxes,
-                            total_gt_labels,
-                            iou_thresh=0.5,
-                            use_07_metric=True,
-                        )
-                        aps.append(result["ap"])
-                        maps.append(result["map"])
-
-                aps = np.stack(aps)
-                maps = np.array(maps)
-
-                print("Avg ap:", np.mean(aps, axis=0))
-                print("Avg map:", np.mean(maps))
-
-                net.train()
+            evaluate(net, SCALES, test_dl)
 
         print("Epoch", epoch, "completed at", datetime.now(), "\n")
 
