@@ -1,10 +1,12 @@
+import random
+
 import chainercv.transforms as T
 import numpy as np
 import torch
 from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
-from torchvision.ops import nms, roi_pool
+from torchvision.ops import nms
 
 # this is duplicate
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -56,92 +58,86 @@ def evaluate(net, scales, dataloader):
 
         aps = []
         maps = []
+        total_pred_boxes = []
+        total_pred_scores = []
+        total_pred_labels = []
+        total_gt_boxes = []
+        total_gt_labels = []
 
-        for max_dim in scales:
+        for (img, boxes, scores, gt_boxes, gt_labels) in dataloader:
+            boxes, scores, gt_boxes, gt_labels = (
+                boxes.numpy(),
+                scores.numpy(),
+                gt_boxes.numpy(),
+                gt_labels.numpy(),
+            )
 
-            for xflip in [True, False]:
-                total_pred_boxes = []
-                total_pred_scores = []
-                total_pred_labels = []
-                total_gt_boxes = []
-                total_gt_labels = []
+            keep = unique_boxes(boxes)
+            boxes = boxes[keep, :]
 
-                for (img, boxes, scores, gt_boxes, gt_labels) in dataloader:
-                    boxes, scores, gt_boxes, gt_labels = (
-                        boxes.numpy(),
-                        scores.numpy(),
-                        gt_boxes.numpy(),
-                        gt_labels.numpy(),
-                    )
+            keep = filter_small_boxes(boxes, 2)
+            boxes = boxes[keep, :]
 
-                    keep = unique_boxes(boxes)
-                    boxes = boxes[keep, :]
+            p_img, p_boxes, p_gt_boxes = prepare(
+                img,
+                boxes,
+                random.choice(scales),
+                random.choice([False, True]),
+                gt_boxes,
+            )
 
-                    keep = filter_small_boxes(boxes, 2)
-                    boxes = boxes[keep, :]
+            batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
+                np2gpu(p_img, DEVICE),
+                np2gpu(p_boxes, DEVICE),
+                np2gpu(scores, DEVICE),
+                np2gpu(p_gt_boxes, DEVICE),
+                np2gpu(gt_labels, DEVICE),
+            )
+            combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
+            # pred_scores, pred_labels = torch.max(combined_scores, dim=1)
 
-                    p_img, p_boxes, p_gt_boxes = prepare(
-                        img, boxes, max_dim, xflip, gt_boxes
-                    )
+            img_thresh = torch.sort(combined_scores.view(-1), descending=True)[0][300]
 
-                    batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                        np2gpu(p_img, DEVICE),
-                        np2gpu(p_boxes, DEVICE),
-                        np2gpu(scores, DEVICE),
-                        np2gpu(p_gt_boxes, DEVICE),
-                        np2gpu(gt_labels, DEVICE),
-                    )
-                    combined_scores, pred_boxes = net(
-                        batch_imgs, batch_boxes, batch_scores
-                    )
-                    # pred_scores, pred_labels = torch.max(combined_scores, dim=1)
+            batch_pred_boxes = []
+            batch_pred_scores = []
+            batch_pred_labels = []
 
-                    img_thresh = torch.sort(combined_scores.view(-1), descending=True)[
-                        0
-                    ][300]
+            for i in range(20):
+                region_scores = combined_scores[:, i]
+                filtered_indices = region_scores > img_thresh
 
-                    batch_pred_boxes = []
-                    batch_pred_scores = []
-                    batch_pred_labels = []
+                filtered_region_scores = region_scores[filtered_indices]
+                filtered_pred_boxes = pred_boxes[filtered_indices]
 
-                    for i in range(20):
-                        region_scores = combined_scores[:, i]
-                        filtered_indices = region_scores > img_thresh
+                selected_indices = nms(filtered_pred_boxes, filtered_region_scores, 0.4)
 
-                        filtered_region_scores = region_scores[filtered_indices]
-                        filtered_pred_boxes = pred_boxes[filtered_indices]
-
-                        selected_indices = nms(
-                            filtered_pred_boxes, filtered_region_scores, 0.4
-                        )
-
-                        batch_pred_boxes.append(
-                            filtered_pred_boxes[selected_indices].cpu().numpy()
-                        )
-                        batch_pred_scores.append(
-                            filtered_region_scores[selected_indices].cpu().numpy()
-                        )
-                        batch_pred_labels.append(
-                            np.full(len(selected_indices), i, dtype=np.int32)
-                        )
-
-                    total_pred_boxes.append(np.concatenate(batch_pred_boxes, axis=0))
-                    total_pred_scores.append(np.concatenate(batch_pred_scores, axis=0))
-                    total_pred_labels.append(np.concatenate(batch_pred_labels, axis=0))
-                    total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
-                    total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
-
-                result = eval_detection_voc(
-                    total_pred_boxes,
-                    total_pred_labels,
-                    total_pred_scores,
-                    total_gt_boxes,
-                    total_gt_labels,
-                    iou_thresh=0.5,
-                    use_07_metric=True,
+                batch_pred_boxes.append(
+                    filtered_pred_boxes[selected_indices].cpu().numpy()
                 )
-                aps.append(result["ap"])
-                maps.append(result["map"])
+                batch_pred_scores.append(
+                    filtered_region_scores[selected_indices].cpu().numpy()
+                )
+                batch_pred_labels.append(
+                    np.full(len(selected_indices), i, dtype=np.int32)
+                )
+
+            total_pred_boxes.append(np.concatenate(batch_pred_boxes, axis=0))
+            total_pred_scores.append(np.concatenate(batch_pred_scores, axis=0))
+            total_pred_labels.append(np.concatenate(batch_pred_labels, axis=0))
+            total_gt_boxes.append(batch_gt_boxes[0].cpu().numpy())
+            total_gt_labels.append(batch_gt_labels[0].cpu().numpy())
+
+        result = eval_detection_voc(
+            total_pred_boxes,
+            total_pred_labels,
+            total_pred_scores,
+            total_gt_boxes,
+            total_gt_labels,
+            iou_thresh=0.5,
+            use_07_metric=True,
+        )
+        aps.append(result["ap"])
+        maps.append(result["map"])
 
         aps = np.stack(aps)
         maps = np.array(maps)

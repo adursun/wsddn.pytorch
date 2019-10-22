@@ -4,9 +4,9 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from PIL import Image
 from scipy.io import loadmat
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 
-from utils import hflip, np2gpu, prepare, scale, swap_axes, unique_boxes
+from utils import prepare, swap_axes
 
 
 class VOCandSSW(Dataset):
