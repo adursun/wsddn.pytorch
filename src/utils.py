@@ -56,8 +56,6 @@ def evaluate(net, scales, dataloader):
     with torch.no_grad():
         net.eval()
 
-        aps = []
-        maps = []
         total_pred_boxes = []
         total_pred_scores = []
         total_pred_labels = []
@@ -80,21 +78,14 @@ def evaluate(net, scales, dataloader):
             boxes = boxes[keep, :]
             scores = scores[keep, :]
 
-            p_img, p_boxes, p_gt_boxes = prepare(
-                img,
-                boxes,
-                random.choice(scales),
-                random.choice([False, True]),
-                gt_boxes,
-            )
-
             batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                np2gpu(p_img, DEVICE),
-                np2gpu(p_boxes, DEVICE),
+                np2gpu(img, DEVICE),
+                np2gpu(boxes, DEVICE),
                 np2gpu(scores, DEVICE),
-                np2gpu(p_gt_boxes, DEVICE),
+                np2gpu(gt_boxes, DEVICE),
                 np2gpu(gt_labels, DEVICE),
             )
+
             combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
 
             img_thresh = torch.sort(combined_scores.view(-1), descending=True)[0][300]
@@ -137,14 +128,9 @@ def evaluate(net, scales, dataloader):
             iou_thresh=0.5,
             use_07_metric=True,
         )
-        aps.append(result["ap"])
-        maps.append(result["map"])
 
-        aps = np.stack(aps)
-        maps = np.array(maps)
-
-        print("Avg ap:", np.mean(aps, axis=0))
-        print("Avg map:", np.mean(maps))
+        print("Avg ap:", result["ap"])
+        print("Avg map:", result["map"])
 
         net.train()
 

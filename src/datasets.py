@@ -35,6 +35,8 @@ class VOCandSSW(Dataset):
     }
 
     def __init__(self, split, scales):
+        assert split in ["train", "test"], "`split` should be in [train, test]"
+
         self.split = split
         self.scales = scales
 
@@ -99,14 +101,15 @@ class VOCandSSW(Dataset):
         boxes, scores = self.get_boxes_and_scores(i)
         gt_boxes, gt_labels = self._get_annotations(i)
 
-        if self.split == "test":
-            return img, boxes, scores, gt_boxes, gt_labels
-
-        img, boxes, _ = prepare(
-            img, boxes, random.choice(self.scales), random.choice([False, True])
+        img, boxes, gt_boxes = prepare(
+            img, boxes, random.choice(self.scales), random.choice([False, True]), gt_boxes
         )
-        target = self.get_target(gt_labels)
-        return img, boxes, scores, target
+
+        if self.split == "train":
+            target = self.get_target(gt_labels)
+            return img, boxes, scores, target
+        elif self.split == "test":
+            return img, boxes, scores, gt_boxes, gt_labels
 
     def __len__(self):
         return len(self.ids)
