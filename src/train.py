@@ -45,11 +45,10 @@ if __name__ == "__main__":
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
 
     # Create the network
-    if OFFSET == 0:
-        net = WSDDN()
-        print("Training started from the beginning.")
-    else:
-        net = torch.load(f"../states/epoch_{OFFSET}.pt")
+    net = WSDDN()
+
+    if OFFSET != 0:
+        net.load_state_dict(torch.load(f"../states/epoch_{OFFSET}.pt")
         print(f"Loaded epoch {OFFSET}'s state.")
 
     net.to(DEVICE)
