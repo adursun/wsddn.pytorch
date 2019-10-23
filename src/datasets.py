@@ -102,7 +102,11 @@ class VOCandSSW(Dataset):
         gt_boxes, gt_labels = self._get_annotations(i)
 
         img, boxes, gt_boxes = prepare(
-            img, boxes, random.choice(self.scales), random.choice([False, True]), gt_boxes
+            img,
+            boxes,
+            random.choice(self.scales),
+            random.choice([False, True]),
+            gt_boxes,
         )
 
         if self.split == "train":

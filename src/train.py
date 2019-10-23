@@ -19,19 +19,23 @@ SCALES = [480, 576, 688, 864, 1200]
 
 if __name__ == "__main__":
     # Set the seed
-    seed = 61
-    random.seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    SEED = 61
+    random.seed(SEED)
+    os.environ["PYTHONHASHSEED"] = str(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
     torch.backends.cudnn.deterministic = True
 
     # Set the hyperparameters
     LR = 1e-5
     WD = 5e-4
-    EPOCHS = 40
+
+    EPOCHS = 20
     OFFSET = 0
+
+    EVAL_PER_EPOCH = 10
+    SAVE_STATE_PER_EPOCH = 5
 
     # Create dataset and data loader
     train_ds = VOCandSSW("trainval", SCALES)  # len = 5011
@@ -87,11 +91,14 @@ if __name__ == "__main__":
 
             optimizer.step()
 
-        torch.save(net, f"../states/epoch_{epoch}.pt")
+        if epoch % SAVE_STATE_PER_EPOCH == 0:
+            path = f"../states/epoch_{epoch}.pt"
+            torch.save(net.state_dict(), path)
+            print("State saved to", path)
 
         print("Avg loss is", epoch_loss / len(train_ds))
 
-        if epoch % 10 == 1:
+        if epoch % EVAL_PER_EPOCH == 0:
             print("Evaluation started at", datetime.now())
             evaluate(net, test_dl)
 

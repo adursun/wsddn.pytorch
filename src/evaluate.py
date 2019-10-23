@@ -8,13 +8,17 @@ from network import WSDDN
 from utils import evaluate
 
 SCALES = [480, 576, 688, 864, 1200]
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained model")
     parser.add_argument("path", help="Path of trained model's state")
     args = parser.parse_args()
 
-    net = torch.load(args.path)
+    net = WSDDN()
+    net.load_state_dict(torch.load(args.path))
+    net.to(DEVICE)
+
     print("State is loaded")
 
     test_ds = VOCandSSW("test", SCALES)  # len = 4952
