@@ -74,9 +74,11 @@ def evaluate(net, scales, dataloader):
 
             keep = unique_boxes(boxes)
             boxes = boxes[keep, :]
+            scores = scores[keep, :]
 
             keep = filter_small_boxes(boxes, 2)
             boxes = boxes[keep, :]
+            scores = scores[keep, :]
 
             p_img, p_boxes, p_gt_boxes = prepare(
                 img,
@@ -94,7 +96,6 @@ def evaluate(net, scales, dataloader):
                 np2gpu(gt_labels, DEVICE),
             )
             combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
-            # pred_scores, pred_labels = torch.max(combined_scores, dim=1)
 
             img_thresh = torch.sort(combined_scores.view(-1), descending=True)[0][300]
 
