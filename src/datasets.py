@@ -35,7 +35,7 @@ class VOCandSSW(Dataset):
     }
 
     def __init__(self, split, scales):
-        assert split in ["train", "test"], "`split` should be in [train, test]"
+        assert split in ["trainval", "test"], "`split` should be in [train, test]"
 
         self.split = split
         self.scales = scales
@@ -109,7 +109,7 @@ class VOCandSSW(Dataset):
             gt_boxes,
         )
 
-        if self.split == "train":
+        if self.split == "trainval":
             target = self.get_target(gt_labels)
             return img, boxes, scores, target
         elif self.split == "test":
