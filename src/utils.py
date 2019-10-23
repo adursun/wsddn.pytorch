@@ -51,7 +51,7 @@ def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None):
     return img, boxes, gt_boxes
 
 
-def evaluate(net, scales, dataloader):
+def evaluate(net, dataloader):
     """Evaluates network."""
     with torch.no_grad():
         net.eval()

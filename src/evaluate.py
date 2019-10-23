@@ -20,4 +20,4 @@ if __name__ == "__main__":
     test_ds = VOCandSSW("test", SCALES)  # len = 4952
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
 
-    evaluate(net, SCALES, test_dl)
+    evaluate(net, test_dl)

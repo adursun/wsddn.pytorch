@@ -13,18 +13,18 @@ from network import WSDDN
 from utils import evaluate
 
 # Some constants
-SEED = 61
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 SCALES = [480, 576, 688, 864, 1200]
 
 
 if __name__ == "__main__":
     # Set the seed
-    random.seed(SEED)
-    os.environ["PYTHONHASHSEED"] = str(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
+    seed = 61
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
     # Set the hyperparameters
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
         if epoch % 10 == 1:
             print("Evaluation started at", datetime.now())
-            evaluate(net, SCALES, test_dl)
+            evaluate(net, test_dl)
 
         print("Epoch", epoch, "completed at", datetime.now(), "\n")
 
