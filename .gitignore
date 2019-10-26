@@ -12,3 +12,6 @@ states/*
 detections/
 groundtruths/
 tester/
+
+# Added for Detectron2
+detectron2/
