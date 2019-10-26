@@ -48,7 +48,7 @@ if __name__ == "__main__":
     net = WSDDN()
 
     if OFFSET != 0:
-        net.load_state_dict(torch.load(f"../states/epoch_{OFFSET}.pt")
+        net.load_state_dict(torch.load(f"../states/epoch_{OFFSET}.pt"))
         print(f"Loaded epoch {OFFSET}'s state.")
 
     net.to(DEVICE)
@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     # Set loss function and optimizer
     optimizer = optim.Adam(net.parameters(), lr=LR, weight_decay=WD)
-    scheduler = MultiStepLR(optimizer, milestones=[10, 20, 30], gamma=0.3)
+    scheduler = MultiStepLR(optimizer, milestones=[10, 20], gamma=0.1)
     scheduler.last_epoch = OFFSET
 
     # Train the model
