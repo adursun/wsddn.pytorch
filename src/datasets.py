@@ -6,7 +6,7 @@ from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset
 
-from utils import prepare, swap_axes
+from utils import TRANSFORMS, prepare, swap_axes
 
 
 class VOCandSSW(Dataset):
@@ -85,10 +85,12 @@ class VOCandSSW(Dataset):
                 bndbox = obj.find("bndbox")
                 boxes.append(
                     [
-                        int(bndbox.find(tag).text) - 1
+                        int(bndbox.find(tag).text)
                         for tag in ("xmin", "ymin", "xmax", "ymax")
                     ]
                 )
+                boxes[-1][0] -= 1
+                boxes[-1][1] -= 1
                 labels.append(self.CLASS2ID[obj.find("name").text])
 
         boxes = np.stack(boxes).astype(np.float32)
@@ -101,19 +103,19 @@ class VOCandSSW(Dataset):
         boxes, scores = self.get_boxes_and_scores(i)
         gt_boxes, gt_labels = self._get_annotations(i)
 
-        img, boxes, gt_boxes = prepare(
-            img,
-            boxes,
-            random.choice(self.scales),
-            random.choice([False, True]),
-            gt_boxes,
-        )
-
         if self.split == "trainval":
+            img, boxes, gt_boxes = prepare(
+                img,
+                boxes,
+                random.choice(self.scales),
+                random.choice([False, True]),
+                gt_boxes,
+            )
             target = self.get_target(gt_labels)
-            return img, boxes, scores, target
+            return self.ids[i], img, boxes, scores, target
         elif self.split == "test":
-            return img, boxes, scores, gt_boxes, gt_labels
+            img = TRANSFORMS(img)
+            return self.ids[i], img, boxes, scores, gt_boxes, gt_labels
 
     def __len__(self):
         return len(self.ids)
