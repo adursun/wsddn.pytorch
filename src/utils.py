@@ -1,5 +1,10 @@
+import logging
 import random
+from collections import defaultdict
+from datetime import datetime
 
+from albumentations import Compose, BboxParams, LongestMaxSize, HorizontalFlip
+from albumentations.pytorch.transforms import ToTensor
 import chainercv.transforms as T
 import numpy as np
 import torch
@@ -7,6 +12,8 @@ from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
+
+from detectron2.evaluation import PascalVOCDetectionEvaluator
 
 # this is duplicate
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -20,35 +27,121 @@ TRANSFORMS = transforms.Compose(
 )
 
 
-def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None):
-    img = np.asarray(img, dtype=np.float32)  # use numpy array for augmentation
-    img = np.transpose(img, (2, 0, 1))  # convert img to CHW
+def get_aug(aug):
+    return Compose(
+        aug, bbox_params=BboxParams(format="pascal_voc", label_fields=["gt_labels"])
+    )
 
-    # convert boxes into (ymin, xmin, ymax, xmax) format
-    boxes = swap_axes(boxes)
 
-    if gt_boxes is not None:
-        gt_boxes = swap_axes(gt_boxes)
+def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None, gt_labels=None):
+    aug = get_aug(
+        [
+            LongestMaxSize(max_size=max_dim),
+            HorizontalFlip(p=float(xflip)),
+            ToTensor(
+                normalize=dict(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ),
+        ]
+    )
+    augmented = aug(
+        image=img, bboxes=boxes, gt_labels=np.full(len(boxes), fill_value=1)
+    )
+    augmented_gt = aug(image=img, bboxes=gt_boxes, gt_labels=gt_labels)
 
-    # scale
-    if max_dim:
-        img, boxes, gt_boxes = scale(img, boxes, max_dim, gt_boxes)
-
-    # horizontal flip
-    if xflip:
-        img, boxes, gt_boxes = hflip(img, boxes, gt_boxes)
-
-    # convert boxes back to (xmin, ymin, xmax, ymax) format
-    boxes = swap_axes(boxes)
-
-    if gt_boxes is not None:
-        gt_boxes = swap_axes(gt_boxes)
-
-    # convert img from CHW to HWC
-    img = Image.fromarray(np.transpose(img, (1, 2, 0)).astype(np.uint8), mode="RGB")
-    img = TRANSFORMS(img)  # convert pillow image to normalized tensor
+    img = augmented["image"].numpy().astype(np.float32)
+    boxes = np.asarray(augmented["bboxes"]).astype(np.float32)
+    gt_boxes = np.asarray(augmented_gt["bboxes"]).astype(np.float32)
 
     return img, boxes, gt_boxes
+
+
+def evaluate_detectron2(net, dataloader):
+    CLASSES = [
+        "aeroplane",
+        "bicycle",
+        "bird",
+        "boat",
+        "bottle",
+        "bus",
+        "car",
+        "cat",
+        "chair",
+        "cow",
+        "diningtable",
+        "dog",
+        "horse",
+        "motorbike",
+        "person",
+        "pottedplant",
+        "sheep",
+        "sofa",
+        "train",
+        "tvmonitor",
+    ]
+
+    class Detectron2VOCEvaluator(PascalVOCDetectionEvaluator):
+        def __init__(self):
+            self._dataset_name = "voc_2007_test"
+            self._anno_file_template = (
+                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/Annotations/{}.xml"
+            )
+            self._image_set_path = (
+                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/ImageSets/Main/test.txt"
+            )
+            self._class_names = CLASSES
+            self._is_2007 = True
+            self._cpu_device = torch.device("cpu")
+            self._logger = logging.getLogger(__name__)
+            self._predictions = defaultdict(list)
+
+    evaluator = Detectron2VOCEvaluator()
+
+    print("Evaluation started at", datetime.now())
+
+    with torch.no_grad():
+
+        net.eval()
+
+        # check img_id -> batch or single
+
+        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in dataloader:
+            boxes, scores, gt_boxes, gt_labels = (
+                boxes.numpy(),
+                scores.numpy(),
+                gt_boxes.numpy(),
+                gt_labels.numpy(),
+            )
+
+            batch_imgs, batch_boxes, batch_scores = (
+                np2gpu(img, DEVICE),
+                np2gpu(boxes, DEVICE),
+                np2gpu(scores, DEVICE),
+            )
+
+            combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
+
+            for i in range(20):
+                region_scores = combined_scores[:, i]
+
+                selected_indices = nms(pred_boxes, region_scores, 0.4)
+
+                resulting_boxes = pred_boxes[selected_indices].cpu().numpy()[:300]
+                resulting_scores = region_scores[selected_indices].cpu().numpy()[:300]
+                resulting_scores *= np.squeeze(scores[:len(resulting_scores)])
+
+                for j, resulting_box in enumerate(resulting_boxes):
+                    evaluator._predictions[i].append(
+                        f"{img_id} {resulting_scores[j]:.3f} {resulting_box[0] + 1:.1f} {resulting_box[1] + 1:.1f} {resulting_box[2]:.1f} {resulting_box[3]:.1f}"
+                    )
+
+        print("Predictions completed at", datetime.now())
+
+        net.train()
+
+    result = evaluator.evaluate()
+
+    print("Evaluation completed at", datetime.now())
+    print(result)
 
 
 def evaluate(net, dataloader):
@@ -62,7 +155,7 @@ def evaluate(net, dataloader):
         total_gt_boxes = []
         total_gt_labels = []
 
-        for (img, boxes, scores, gt_boxes, gt_labels) in dataloader:
+        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in dataloader:
             boxes, scores, gt_boxes, gt_labels = (
                 boxes.numpy(),
                 scores.numpy(),

@@ -2,6 +2,7 @@ import random
 import xml.etree.ElementTree as ET
 
 import numpy as np
+import cv2 as cv
 from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset
@@ -98,7 +99,8 @@ class VOCandSSW(Dataset):
         return boxes, labels
 
     def __getitem__(self, i):
-        img = Image.open(self.img_paths[i]).convert("RGB")  # open Pillow image
+        img = cv.imread(self.img_paths[i])
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 
         boxes, scores = self.get_boxes_and_scores(i)
         gt_boxes, gt_labels = self._get_annotations(i)
@@ -110,12 +112,12 @@ class VOCandSSW(Dataset):
                 random.choice(self.scales),
                 random.choice([False, True]),
                 gt_boxes,
+                gt_labels,
             )
             target = self.get_target(gt_labels)
             return self.ids[i], img, boxes, scores, target
         elif self.split == "test":
-            img = TRANSFORMS(img)
-            return self.ids[i], img, boxes, scores, gt_boxes, gt_labels
+            return self.ids[i], TRANSFORMS(img), boxes, scores, gt_boxes, gt_labels
 
     def __len__(self):
         return len(self.ids)
