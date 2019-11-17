@@ -7,3 +7,4 @@ jupyter==1.0.0
 black==19.3b0
 isort==4.3.21
 albumentations==0.4.2
+Cython==0.29.14
