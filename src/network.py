@@ -25,7 +25,7 @@ class WSDDN(nn.Module):
 
         out = out.view(-1, 9216)  # [4000, 9216]
 
-        out = out * batch_scores[0] # apply box scores
+        out = out * batch_scores[0]  # apply box scores
 
         out = self.fcs(out)  # [4000, 4096]
 

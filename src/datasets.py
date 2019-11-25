@@ -1,8 +1,8 @@
 import random
 import xml.etree.ElementTree as ET
 
-import numpy as np
 import cv2 as cv
+import numpy as np
 from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset

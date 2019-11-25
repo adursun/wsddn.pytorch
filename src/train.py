@@ -32,7 +32,7 @@ if __name__ == "__main__":
     WD = 5e-4
 
     EPOCHS = 20
-    OFFSET = 10
+    OFFSET = 0
 
     EVAL_PER_EPOCH = 10
     SAVE_STATE_PER_EPOCH = 5
@@ -73,7 +73,13 @@ if __name__ == "__main__":
 
         epoch_loss = 0.0
 
-        for (batch_img_ids, batch_imgs, batch_boxes, batch_scores, batch_target) in train_dl:
+        for (
+            batch_img_ids,
+            batch_imgs,
+            batch_boxes,
+            batch_scores,
+            batch_target,
+        ) in train_dl:
             optimizer.zero_grad()
 
             batch_imgs, batch_boxes, batch_scores, batch_target = (
