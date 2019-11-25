@@ -127,7 +127,7 @@ def evaluate_detectron2(net, dataloader):
 
                 resulting_boxes = pred_boxes[selected_indices].cpu().numpy()[:300]
                 resulting_scores = region_scores[selected_indices].cpu().numpy()[:300]
-                resulting_scores *= np.squeeze(scores[:len(resulting_scores)])
+                resulting_scores *= np.squeeze(scores[: len(resulting_scores)])
 
                 for j, resulting_box in enumerate(resulting_boxes):
                     evaluator._predictions[i].append(
@@ -163,14 +163,6 @@ def evaluate(net, dataloader):
                 gt_labels.numpy(),
             )
 
-            keep = unique_boxes(boxes)
-            boxes = boxes[keep, :]
-            scores = scores[keep, :]
-
-            keep = filter_small_boxes(boxes, 2)
-            boxes = boxes[keep, :]
-            scores = scores[keep, :]
-
             batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
                 np2gpu(img, DEVICE),
                 np2gpu(boxes, DEVICE),
@@ -181,27 +173,16 @@ def evaluate(net, dataloader):
 
             combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
 
-            img_thresh = torch.sort(combined_scores.view(-1), descending=True)[0][300]
-
             batch_pred_boxes = []
             batch_pred_scores = []
             batch_pred_labels = []
 
             for i in range(20):
                 region_scores = combined_scores[:, i]
-                filtered_indices = region_scores > img_thresh
+                selected_indices = nms(pred_boxes, region_scores, 0.4)
 
-                filtered_region_scores = region_scores[filtered_indices]
-                filtered_pred_boxes = pred_boxes[filtered_indices]
-
-                selected_indices = nms(filtered_pred_boxes, filtered_region_scores, 0.4)
-
-                batch_pred_boxes.append(
-                    filtered_pred_boxes[selected_indices].cpu().numpy()
-                )
-                batch_pred_scores.append(
-                    filtered_region_scores[selected_indices].cpu().numpy()
-                )
+                batch_pred_boxes.append(pred_boxes[selected_indices].cpu().numpy())
+                batch_pred_scores.append(region_scores[selected_indices].cpu().numpy())
                 batch_pred_labels.append(
                     np.full(len(selected_indices), i, dtype=np.int32)
                 )
