@@ -1,5 +1,6 @@
 import logging
 import random
+import tqdm
 from collections import defaultdict
 from datetime import datetime
 
@@ -155,7 +156,7 @@ def evaluate(net, dataloader):
         total_gt_boxes = []
         total_gt_labels = []
 
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in dataloader:
+        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm.tqdm(dataloader, "Evaluating..."):
             boxes, scores, gt_boxes, gt_labels = (
                 boxes.numpy(),
                 scores.numpy(),
