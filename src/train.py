@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from datasets import VOCandSSW
 from network import WSDDN
+from tqdm import tqdm
 from utils import evaluate
 
 # Some constants
@@ -60,16 +61,7 @@ if __name__ == "__main__":
     scheduler.last_epoch = OFFSET
 
     # Train the model
-    for epoch in range(OFFSET + 1, EPOCHS + 1):
-
-        print(
-            "Epoch",
-            epoch,
-            "started at",
-            datetime.now(),
-            "with lr =",
-            scheduler.get_lr(),
-        )
+    for epoch in tqdm(range(OFFSET + 1, EPOCHS + 1), "Total"):
 
         epoch_loss = 0.0
 
@@ -79,7 +71,7 @@ if __name__ == "__main__":
             batch_boxes,
             batch_scores,
             batch_target,
-        ) in train_dl:
+        ) in tqdm(train_dl, f"Epoch {epoch}"):
             optimizer.zero_grad()
 
             batch_imgs, batch_boxes, batch_scores, batch_target = (
@@ -99,14 +91,12 @@ if __name__ == "__main__":
         if epoch % SAVE_STATE_PER_EPOCH == 0:
             path = f"../states/epoch_{epoch}.pt"
             torch.save(net.state_dict(), path)
-            print("State saved to", path)
+            tqdm.write("State saved to", path)
 
-        print("Avg loss is", epoch_loss / len(train_ds))
+        tqdm.write("Avg loss is", epoch_loss / len(train_ds))
 
         if epoch % EVAL_PER_EPOCH == 0:
-            print("Evaluation started at", datetime.now())
+            tqdm.write("Evaluation started at", datetime.now())
             evaluate(net, test_dl)
-
-        print("Epoch", epoch, "completed at", datetime.now(), "\n")
 
         scheduler.step()
