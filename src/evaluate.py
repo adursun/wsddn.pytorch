@@ -22,7 +22,5 @@ if __name__ == "__main__":
     print("State is loaded")
 
     test_ds = VOCandSSW("test", SCALES)  # len = 4952
-    test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
-
-    # evaluate_detectron2(net, test_dl)
+    test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
     evaluate(net, test_dl)
