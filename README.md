@@ -9,7 +9,7 @@
 
 ```
 ./prepare.sh
-docker run --gpus all -v `pwd`:/ws -it wsddn.pytorch /bin/bash
+docker run --gpus all --ipc=host -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 ```
 
 ## Training Steps
