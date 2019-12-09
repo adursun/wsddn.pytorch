@@ -12,6 +12,12 @@
 docker run --gpus all -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 ```
 
+## Jupyter
+
+```
+docker build -f Dockerfile.Jupyter -t wsddn.pytorch:jupyter .
+```
+
 ## Training Steps
 
 ```
