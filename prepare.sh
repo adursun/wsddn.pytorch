@@ -9,7 +9,7 @@ mkdir data/VOCtest_06-Nov-2007
 tar xf data/VOCtest_06-Nov-2007.tar --directory data/VOCtest_06-Nov-2007/
 
 # download and extract selective search windows boxes
-wget http://www.cs.cmu.edu/~spurushw/hw2_files/selective_search_data.tar -P data/
+wget https://www.dropbox.com/s/uzmkb37u5hzdh93/selective_search_data.tar -P data/
 tar xf data/selective_search_data.tar --directory data/
 
 # download pretrained alexnet weights
