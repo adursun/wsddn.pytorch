@@ -7,10 +7,10 @@ import torch
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import VOCandSSW
 from network import WSDDN
-from tqdm import tqdm
 from utils import evaluate
 
 # Some constants
@@ -91,12 +91,12 @@ if __name__ == "__main__":
         if epoch % SAVE_STATE_PER_EPOCH == 0:
             path = f"../states/epoch_{epoch}.pt"
             torch.save(net.state_dict(), path)
-            tqdm.write("State saved to", path)
+            tqdm.write(f"State saved to {path}")
 
-        tqdm.write("Avg loss is", epoch_loss / len(train_ds))
+        tqdm.write(f"Avg loss is {epoch_loss / len(train_ds)}")
 
         if epoch % EVAL_PER_EPOCH == 0:
-            tqdm.write("Evaluation started at", datetime.now())
+            tqdm.write(f"Evaluation started at {datetime.now()}")
             evaluate(net, test_dl)
 
         scheduler.step()
