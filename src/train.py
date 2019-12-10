@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datasets import VOCandSSW
+from datasets import VocAndEb
 from network import WSDDN
 from utils import evaluate
 
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     SAVE_STATE_PER_EPOCH = 5
 
     # Create dataset and data loader
-    train_ds = VOCandSSW("trainval", SCALES)  # len = 5011
-    test_ds = VOCandSSW("test", SCALES)  # len = 4952
+    train_ds = VocAndEb("trainval", SCALES)  # len = 5011
+    test_ds = VocAndEb("test", SCALES)  # len = 4952
 
     train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=4)
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)

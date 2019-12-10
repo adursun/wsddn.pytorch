@@ -3,7 +3,7 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 
-from datasets import VOCandSSW
+from datasets import VocAndEb
 from network import WSDDN
 from utils import evaluate, evaluate_detectron2
 
@@ -21,6 +21,6 @@ if __name__ == "__main__":
 
     print("State is loaded")
 
-    test_ds = VOCandSSW("test", SCALES)  # len = 4952
+    test_ds = VocAndEb("test", SCALES)  # len = 4952
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
     evaluate(net, test_dl)

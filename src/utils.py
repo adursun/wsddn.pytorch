@@ -1,20 +1,19 @@
 import logging
 import random
-import tqdm
 from collections import defaultdict
 from datetime import datetime
 
 import chainercv.transforms as T
 import numpy as np
 import torch
+from tqdm import tqdm
 from albumentations import BboxParams, Compose, HorizontalFlip, LongestMaxSize
 from albumentations.pytorch.transforms import ToTensor
 from chainercv.evaluations import eval_detection_voc
+from detectron2.evaluation import PascalVOCDetectionEvaluator
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
-
-from detectron2.evaluation import PascalVOCDetectionEvaluator
 
 # this is duplicate
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -156,7 +155,9 @@ def evaluate(net, dataloader):
         total_gt_boxes = []
         total_gt_labels = []
 
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm.tqdm(dataloader, "Evaluating..."):
+        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm(
+            dataloader, "Evaluation"
+        ):
             boxes, scores, gt_boxes, gt_labels = (
                 boxes.numpy(),
                 scores.numpy(),
