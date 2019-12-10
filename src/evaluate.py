@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from datasets import VocAndEb
 from network import WSDDN
-from utils import evaluate, evaluate_detectron2
+from utils import evaluate
 
 SCALES = [480, 576, 688, 864, 1200]
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

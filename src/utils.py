@@ -6,14 +6,15 @@ from datetime import datetime
 import chainercv.transforms as T
 import numpy as np
 import torch
-from tqdm import tqdm
 from albumentations import BboxParams, Compose, HorizontalFlip, LongestMaxSize
 from albumentations.pytorch.transforms import ToTensor
 from chainercv.evaluations import eval_detection_voc
-from detectron2.evaluation import PascalVOCDetectionEvaluator
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
+
+from detectron2.evaluation import PascalVOCDetectionEvaluator
+from tqdm import tqdm
 
 # this is duplicate
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -53,95 +54,6 @@ def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None, gt_labels=None
     gt_boxes = np.asarray(augmented_gt["bboxes"]).astype(np.float32)
 
     return img, boxes, gt_boxes
-
-
-def evaluate_detectron2(net, dataloader):
-    CLASSES = [
-        "aeroplane",
-        "bicycle",
-        "bird",
-        "boat",
-        "bottle",
-        "bus",
-        "car",
-        "cat",
-        "chair",
-        "cow",
-        "diningtable",
-        "dog",
-        "horse",
-        "motorbike",
-        "person",
-        "pottedplant",
-        "sheep",
-        "sofa",
-        "train",
-        "tvmonitor",
-    ]
-
-    class Detectron2VOCEvaluator(PascalVOCDetectionEvaluator):
-        def __init__(self):
-            self._dataset_name = "voc_2007_test"
-            self._anno_file_template = (
-                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/Annotations/{}.xml"
-            )
-            self._image_set_path = (
-                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/ImageSets/Main/test.txt"
-            )
-            self._class_names = CLASSES
-            self._is_2007 = True
-            self._cpu_device = torch.device("cpu")
-            self._logger = logging.getLogger(__name__)
-            self._predictions = defaultdict(list)
-
-    evaluator = Detectron2VOCEvaluator()
-
-    print("Evaluation started at", datetime.now())
-
-    with torch.no_grad():
-
-        net.eval()
-
-        # check img_id -> batch or single
-
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in dataloader:
-            boxes, scores, gt_boxes, gt_labels = (
-                boxes.numpy(),
-                scores.numpy(),
-                gt_boxes.numpy(),
-                gt_labels.numpy(),
-            )
-
-            batch_imgs, batch_boxes, batch_scores = (
-                np2gpu(img, DEVICE),
-                np2gpu(boxes, DEVICE),
-                np2gpu(scores, DEVICE),
-            )
-
-            combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
-
-            for i in range(20):
-                region_scores = combined_scores[:, i]
-
-                selected_indices = nms(pred_boxes, region_scores, 0.4)
-
-                resulting_boxes = pred_boxes[selected_indices].cpu().numpy()[:300]
-                resulting_scores = region_scores[selected_indices].cpu().numpy()[:300]
-                resulting_scores *= np.squeeze(scores[: len(resulting_scores)])
-
-                for j, resulting_box in enumerate(resulting_boxes):
-                    evaluator._predictions[i].append(
-                        f"{img_id} {resulting_scores[j]:.3f} {resulting_box[0] + 1:.1f} {resulting_box[1] + 1:.1f} {resulting_box[2]:.1f} {resulting_box[3]:.1f}"
-                    )
-
-        print("Predictions completed at", datetime.now())
-
-        net.train()
-
-    result = evaluator.evaluate()
-
-    print("Evaluation completed at", datetime.now())
-    print(result)
 
 
 def evaluate(net, dataloader):
