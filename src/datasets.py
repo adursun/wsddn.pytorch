@@ -7,7 +7,7 @@ from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset
 
-from utils import TRANSFORMS, prepare, swap_axes
+from utils import TRANSFORMS, filter_small_boxes, prepare, swap_axes
 
 
 class VocAndEb(Dataset):
@@ -59,11 +59,12 @@ class VocAndEb(Dataset):
         # box format: (x_min, y_min, x_max, y_max)
         # this can be improved
         boxes = swap_axes(boxes)
+        mask = filter_small_boxes(boxes, 20)
 
         # (box_count, 1)
         # dtype: float64
         scores = self.eb_scores[i]
-        return boxes, scores
+        return boxes[mask], scores[mask]
 
     def get_target(self, gt_labels):
         target = np.full(20, 0, dtype=np.float32)

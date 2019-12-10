@@ -7,10 +7,10 @@ import torch
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import VocAndEb
 from network import WSDDN
-from tqdm import tqdm
 from utils import evaluate
 
 # Some constants

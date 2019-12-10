@@ -12,8 +12,6 @@ from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
-
-from detectron2.evaluation import PascalVOCDetectionEvaluator
 from tqdm import tqdm
 
 # this is duplicate
@@ -85,6 +83,7 @@ def evaluate(net, dataloader):
                 np2gpu(gt_labels, DEVICE),
             )
 
+            # why batch_boxes is not used and pred_boxes is returned
             combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
 
             batch_pred_boxes = []
@@ -93,13 +92,15 @@ def evaluate(net, dataloader):
 
             for i in range(20):
                 region_scores = combined_scores[:, i]
-                selected_indices = nms(pred_boxes, region_scores, 0.4)
+                score_mask = region_scores > 1e-3
 
-                batch_pred_boxes.append(pred_boxes[selected_indices].cpu().numpy())
-                batch_pred_scores.append(region_scores[selected_indices].cpu().numpy())
-                batch_pred_labels.append(
-                    np.full(len(selected_indices), i, dtype=np.int32)
-                )
+                selected_scores = region_scores[score_mask]
+                selected_boxes = pred_boxes[score_mask]
+                nms_mask = nms(selected_boxes, selected_scores, 0.4)
+
+                batch_pred_boxes.append(selected_boxes[nms_mask].cpu().numpy())
+                batch_pred_scores.append(selected_scores[nms_mask].cpu().numpy())
+                batch_pred_labels.append(np.full(len(nms_mask), i, dtype=np.int32))
 
             total_pred_boxes.append(np.concatenate(batch_pred_boxes, axis=0))
             total_pred_scores.append(np.concatenate(batch_pred_scores, axis=0))
@@ -135,8 +136,8 @@ def filter_small_boxes(boxes, min_size):
     """Filters out small boxes."""
     w = boxes[:, 2] - boxes[:, 0]
     h = boxes[:, 3] - boxes[:, 1]
-    keep = np.where((w >= min_size) & (h > min_size))[0]
-    return keep
+    mask = (w >= min_size) & (h >= min_size)
+    return mask
 
 
 def hflip(img, boxes, gt_boxes=None):
