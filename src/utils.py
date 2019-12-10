@@ -1,6 +1,5 @@
 import logging
 import random
-import tqdm
 from collections import defaultdict
 from datetime import datetime
 
@@ -13,8 +12,7 @@ from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
-
-from detectron2.evaluation import PascalVOCDetectionEvaluator
+from tqdm import tqdm
 
 # this is duplicate
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -56,95 +54,6 @@ def prepare(img, boxes, max_dim=None, xflip=False, gt_boxes=None, gt_labels=None
     return img, boxes, gt_boxes
 
 
-def evaluate_detectron2(net, dataloader):
-    CLASSES = [
-        "aeroplane",
-        "bicycle",
-        "bird",
-        "boat",
-        "bottle",
-        "bus",
-        "car",
-        "cat",
-        "chair",
-        "cow",
-        "diningtable",
-        "dog",
-        "horse",
-        "motorbike",
-        "person",
-        "pottedplant",
-        "sheep",
-        "sofa",
-        "train",
-        "tvmonitor",
-    ]
-
-    class Detectron2VOCEvaluator(PascalVOCDetectionEvaluator):
-        def __init__(self):
-            self._dataset_name = "voc_2007_test"
-            self._anno_file_template = (
-                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/Annotations/{}.xml"
-            )
-            self._image_set_path = (
-                "/ws/data/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/ImageSets/Main/test.txt"
-            )
-            self._class_names = CLASSES
-            self._is_2007 = True
-            self._cpu_device = torch.device("cpu")
-            self._logger = logging.getLogger(__name__)
-            self._predictions = defaultdict(list)
-
-    evaluator = Detectron2VOCEvaluator()
-
-    print("Evaluation started at", datetime.now())
-
-    with torch.no_grad():
-
-        net.eval()
-
-        # check img_id -> batch or single
-
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in dataloader:
-            boxes, scores, gt_boxes, gt_labels = (
-                boxes.numpy(),
-                scores.numpy(),
-                gt_boxes.numpy(),
-                gt_labels.numpy(),
-            )
-
-            batch_imgs, batch_boxes, batch_scores = (
-                np2gpu(img, DEVICE),
-                np2gpu(boxes, DEVICE),
-                np2gpu(scores, DEVICE),
-            )
-
-            combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
-
-            for i in range(20):
-                region_scores = combined_scores[:, i]
-
-                selected_indices = nms(pred_boxes, region_scores, 0.4)
-
-                resulting_boxes = pred_boxes[selected_indices].cpu().numpy()[:300]
-                resulting_scores = region_scores[selected_indices].cpu().numpy()[:300]
-                resulting_scores *= np.squeeze(scores[: len(resulting_scores)])
-
-                for j, resulting_box in enumerate(resulting_boxes):
-                    evaluator._predictions[i].append(
-                        f"{img_id} {resulting_scores[j]:.3f} {resulting_box[0] + 1:.1f} {resulting_box[1] + 1:.1f} {resulting_box[2]:.1f} {resulting_box[3]:.1f}"
-                    )
-
-        print("Predictions completed at", datetime.now())
-
-        net.train()
-
-    result = evaluator.evaluate()
-
-    print("Evaluation completed at", datetime.now())
-    print(result)
-
-
 def evaluate(net, dataloader):
     """Evaluates network."""
     with torch.no_grad():
@@ -156,7 +65,9 @@ def evaluate(net, dataloader):
         total_gt_boxes = []
         total_gt_labels = []
 
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm.tqdm(dataloader, "Evaluating..."):
+        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm(
+            dataloader, "Evaluation"
+        ):
             boxes, scores, gt_boxes, gt_labels = (
                 boxes.numpy(),
                 scores.numpy(),
@@ -172,6 +83,7 @@ def evaluate(net, dataloader):
                 np2gpu(gt_labels, DEVICE),
             )
 
+            # why batch_boxes is not used and pred_boxes is returned
             combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
 
             batch_pred_boxes = []
@@ -180,13 +92,15 @@ def evaluate(net, dataloader):
 
             for i in range(20):
                 region_scores = combined_scores[:, i]
-                selected_indices = nms(pred_boxes, region_scores, 0.4)
+                score_mask = region_scores > 1e-3
 
-                batch_pred_boxes.append(pred_boxes[selected_indices].cpu().numpy())
-                batch_pred_scores.append(region_scores[selected_indices].cpu().numpy())
-                batch_pred_labels.append(
-                    np.full(len(selected_indices), i, dtype=np.int32)
-                )
+                selected_scores = region_scores[score_mask]
+                selected_boxes = pred_boxes[score_mask]
+                nms_mask = nms(selected_boxes, selected_scores, 0.4)
+
+                batch_pred_boxes.append(selected_boxes[nms_mask].cpu().numpy())
+                batch_pred_scores.append(selected_scores[nms_mask].cpu().numpy())
+                batch_pred_labels.append(np.full(len(nms_mask), i, dtype=np.int32))
 
             total_pred_boxes.append(np.concatenate(batch_pred_boxes, axis=0))
             total_pred_scores.append(np.concatenate(batch_pred_scores, axis=0))
@@ -222,8 +136,8 @@ def filter_small_boxes(boxes, min_size):
     """Filters out small boxes."""
     w = boxes[:, 2] - boxes[:, 0]
     h = boxes[:, 3] - boxes[:, 1]
-    keep = np.where((w >= min_size) & (h > min_size))[0]
-    return keep
+    mask = (w >= min_size) & (h >= min_size)
+    return mask
 
 
 def hflip(img, boxes, gt_boxes=None):

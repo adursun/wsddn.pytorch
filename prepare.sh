@@ -8,9 +8,9 @@ wget http://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar -P data/
 mkdir data/VOCtest_06-Nov-2007
 tar xf data/VOCtest_06-Nov-2007.tar --directory data/VOCtest_06-Nov-2007/
 
-# download and extract selective search windows boxes
-wget http://www.cs.cmu.edu/~spurushw/hw2_files/selective_search_data.tar -P data/
-tar xf data/selective_search_data.tar --directory data/
+# download and extract edgeboxes proposals
+wget https://groups.inf.ed.ac.uk/hbilen-data/data/WSDDN/EdgeBoxesVOC2007test.mat -P data/
+wget https://groups.inf.ed.ac.uk/hbilen-data/data/WSDDN/EdgeBoxesVOC2007trainval.mat -P data/
 
 # download pretrained alexnet weights
 wget https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth -P states/

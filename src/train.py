@@ -7,8 +7,9 @@ import torch
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from datasets import VOCandSSW
+from datasets import VocAndEb
 from network import WSDDN
 from utils import evaluate
 
@@ -38,11 +39,11 @@ if __name__ == "__main__":
     SAVE_STATE_PER_EPOCH = 5
 
     # Create dataset and data loader
-    train_ds = VOCandSSW("trainval", SCALES)  # len = 5011
-    test_ds = VOCandSSW("test", SCALES)  # len = 4952
+    train_ds = VocAndEb("trainval", SCALES)  # len = 5011
+    test_ds = VocAndEb("test", SCALES)  # len = 4952
 
-    train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=1)
-    test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=1)
+    train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=4)
+    test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
 
     # Create the network
     net = WSDDN()
@@ -60,16 +61,7 @@ if __name__ == "__main__":
     scheduler.last_epoch = OFFSET
 
     # Train the model
-    for epoch in range(OFFSET + 1, EPOCHS + 1):
-
-        print(
-            "Epoch",
-            epoch,
-            "started at",
-            datetime.now(),
-            "with lr =",
-            scheduler.get_lr(),
-        )
+    for epoch in tqdm(range(OFFSET + 1, EPOCHS + 1), "Total"):
 
         epoch_loss = 0.0
 
@@ -79,7 +71,7 @@ if __name__ == "__main__":
             batch_boxes,
             batch_scores,
             batch_target,
-        ) in train_dl:
+        ) in tqdm(train_dl, f"Epoch {epoch}"):
             optimizer.zero_grad()
 
             batch_imgs, batch_boxes, batch_scores, batch_target = (
@@ -99,14 +91,12 @@ if __name__ == "__main__":
         if epoch % SAVE_STATE_PER_EPOCH == 0:
             path = f"../states/epoch_{epoch}.pt"
             torch.save(net.state_dict(), path)
-            print("State saved to", path)
+            tqdm.write(f"State saved to {path}")
 
-        print("Avg loss is", epoch_loss / len(train_ds))
+        tqdm.write(f"Avg loss is {epoch_loss / len(train_ds)}")
 
         if epoch % EVAL_PER_EPOCH == 0:
-            print("Evaluation started at", datetime.now())
+            tqdm.write(f"Evaluation started at {datetime.now()}")
             evaluate(net, test_dl)
-
-        print("Epoch", epoch, "completed at", datetime.now(), "\n")
 
         scheduler.step()

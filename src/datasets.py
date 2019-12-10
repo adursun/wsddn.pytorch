@@ -7,10 +7,10 @@ from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset
 
-from utils import TRANSFORMS, prepare, swap_axes
+from utils import TRANSFORMS, filter_small_boxes, prepare, swap_axes
 
 
-class VOCandSSW(Dataset):
+class VocAndEb(Dataset):
 
     CLASS2ID = {
         "aeroplane": 0,
@@ -36,19 +36,17 @@ class VOCandSSW(Dataset):
     }
 
     def __init__(self, split, scales):
-        assert split in ["trainval", "test"], "`split` should be in [train, test]"
+        assert split in ["trainval", "test"], "`split` should be in [trainval, test]"
 
         self.split = split
         self.scales = scales
 
-        loaded_mat = loadmat(f"../data/selective_search_data/voc_2007_{self.split}.mat")
-        self.ssw_boxes = loaded_mat["boxes"][0]
-        self.ssw_scores = loaded_mat["boxScores"][0]
+        loaded_mat = loadmat(f"../data/EdgeBoxesVOC2007{self.split}.mat")
+        self.eb_boxes = loaded_mat["boxes"][0]
+        self.eb_scores = loaded_mat["boxScores"][0]
+        self.ids = [str(id_[0]) for id_ in loaded_mat["images"][0]]
 
         voc_dir = f"../data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
-        self.ids = [
-            id_.strip() for id_ in open(f"{voc_dir}/ImageSets/Main/{self.split}.txt")
-        ]
         self.img_paths = [f"{voc_dir}/JPEGImages/{id_}.jpg" for id_ in self.ids]
         self.annotation_paths = [f"{voc_dir}/Annotations/{id_}.xml" for id_ in self.ids]
 
@@ -56,16 +54,17 @@ class VOCandSSW(Dataset):
         # (box_count, 4)
         # dtype: float32
         # box format: (y_min, x_min, y_max, x_max)
-        boxes = self.ssw_boxes[i].astype(np.float32)
+        boxes = self.eb_boxes[i].astype(np.float32)
 
         # box format: (x_min, y_min, x_max, y_max)
         # this can be improved
         boxes = swap_axes(boxes)
+        mask = filter_small_boxes(boxes, 20)
 
         # (box_count, 1)
         # dtype: float64
-        scores = self.ssw_scores[i]
-        return boxes, scores
+        scores = self.eb_scores[i]
+        return boxes[mask], scores[mask]
 
     def get_target(self, gt_labels):
         target = np.full(20, 0, dtype=np.float32)
