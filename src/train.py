@@ -7,10 +7,10 @@ import torch
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from datasets import VocAndEb
 from network import WSDDN
+from tqdm import tqdm
 from utils import evaluate
 
 # Some constants
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                 batch_scores.to(DEVICE),
                 batch_target.to(DEVICE),
             )
-            combined_scores, _ = net(batch_imgs, batch_boxes, batch_scores)
+            combined_scores = net(batch_imgs, batch_boxes, batch_scores)
 
             loss = WSDDN.calculate_loss(combined_scores, batch_target[0])
             epoch_loss += loss.item()

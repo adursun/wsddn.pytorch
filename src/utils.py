@@ -12,6 +12,7 @@ from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
+
 from tqdm import tqdm
 
 # this is duplicate
@@ -83,8 +84,8 @@ def evaluate(net, dataloader):
                 np2gpu(gt_labels, DEVICE),
             )
 
-            # why batch_boxes is not used and pred_boxes is returned
-            combined_scores, pred_boxes = net(batch_imgs, batch_boxes, batch_scores)
+            combined_scores = net(batch_imgs, batch_boxes, batch_scores)
+            pred_boxes = batch_boxes[0]
 
             batch_pred_boxes = []
             batch_pred_scores = []
@@ -92,7 +93,7 @@ def evaluate(net, dataloader):
 
             for i in range(20):
                 region_scores = combined_scores[:, i]
-                score_mask = region_scores > 1e-3
+                score_mask = region_scores > 1e-4
 
                 selected_scores = region_scores[score_mask]
                 selected_boxes = pred_boxes[score_mask]

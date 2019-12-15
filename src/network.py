@@ -22,18 +22,14 @@ class WSDDN(nn.Module):
 
         out = self.features(batch_imgs)  # [1, 256, 21, 29]
         out = roi_pool(out, batch_boxes, (6, 6), 1.0 / 16)  # [4000, 256, 6, 6]
-
         out = out.view(-1, 9216)  # [4000, 9216]
-
         out = out * batch_scores[0]  # apply box scores
-
         out = self.fcs(out)  # [4000, 4096]
 
         classification_scores = F.softmax(self.fc_c(out), dim=1)
         detection_scores = F.softmax(self.fc_d(out), dim=0)
         combined_scores = classification_scores * detection_scores
-
-        return combined_scores, batch_boxes[0]
+        return combined_scores
 
     @staticmethod
     def calculate_loss(combined_scores, target):
