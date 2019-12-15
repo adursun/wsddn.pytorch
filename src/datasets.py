@@ -116,7 +116,34 @@ class VocAndEb(Dataset):
             target = self.get_target(gt_labels)
             return self.ids[i], img, boxes, scores, target
         elif self.split == "test":
-            return self.ids[i], TRANSFORMS(img), boxes, scores, gt_boxes, gt_labels
+            img_id = self.ids[i]
+            orig_img = TRANSFORMS(img)
+            scaled_imgs = []
+            scaled_boxes = []
+
+            for xflip in [True, False]:
+                for max_dim in self.scales:
+                    scaled_img, tmp_scaled_boxes, _ = prepare(
+                        img,
+                        boxes,
+                        max_dim=max_dim,
+                        xflip=xflip,
+                        gt_boxes=[],
+                        gt_labels=[],
+                    )
+                    scaled_imgs.append(scaled_img)
+                    scaled_boxes.append(tmp_scaled_boxes)
+
+            return (
+                img_id,
+                orig_img,
+                boxes,
+                scaled_imgs,
+                scaled_boxes,
+                scores,
+                gt_boxes,
+                gt_labels,
+            )
 
     def __len__(self):
         return len(self.ids)

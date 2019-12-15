@@ -11,7 +11,6 @@ from chainercv.evaluations import eval_detection_voc
 from PIL import Image
 from torchvision import transforms
 from torchvision.ops import nms
-
 from tqdm import tqdm
 
 # this is duplicate
@@ -65,26 +64,37 @@ def evaluate(net, dataloader):
         total_gt_boxes = []
         total_gt_labels = []
 
-        for (img_id, img, boxes, scores, gt_boxes, gt_labels) in tqdm(
-            dataloader, "Evaluation"
-        ):
-            boxes, scores, gt_boxes, gt_labels = (
-                boxes.numpy(),
-                scores.numpy(),
-                gt_boxes.numpy(),
-                gt_labels.numpy(),
-            )
+        for (
+            img_id,
+            img,  # is it necessary
+            boxes,
+            scaled_imgs,
+            scaled_boxes,
+            scores,
+            gt_boxes,
+            gt_labels,
+        ) in tqdm(dataloader, "Evaluation"):
 
-            batch_imgs, batch_boxes, batch_scores, batch_gt_boxes, batch_gt_labels = (
-                np2gpu(img, DEVICE),
-                np2gpu(boxes, DEVICE),
-                np2gpu(scores, DEVICE),
-                np2gpu(gt_boxes, DEVICE),
-                np2gpu(gt_labels, DEVICE),
-            )
+            combined_scores = torch.zeros(len(boxes), 20, dtype=torch.float32)
+            batch_scores = np2gpu(scores.numpy(), DEVICE)
 
-            combined_scores = net(batch_imgs, batch_boxes, batch_scores)
-            pred_boxes = batch_boxes[0]
+            for i, scaled_img in enumerate(scaled_imgs):
+                scaled_img = scaled_img.numpy()
+                tmp_scaled_boxes = scaled_boxes[i].numpy()
+
+                batch_imgs = np2gpu(scaled_img, DEVICE)
+                batch_boxes = np2gpu(tmp_scaled_boxes, DEVICE)
+
+                tmp_combined_scores = net(batch_imgs, batch_boxes, batch_scores)
+                combined_scores += tmp_combined_scores.cpu()
+
+            combined_scores /= 10
+
+            gt_boxes = gt_boxes.numpy()
+            gt_labels = gt_labels.numpy()
+
+            batch_gt_boxes = np2gpu(gt_boxes, DEVICE)
+            batch_gt_labels = np2gpu(gt_labels, DEVICE)
 
             batch_pred_boxes = []
             batch_pred_scores = []
@@ -92,10 +102,11 @@ def evaluate(net, dataloader):
 
             for i in range(20):
                 region_scores = combined_scores[:, i]
-                score_mask = region_scores > 1e-4
+                score_mask = region_scores > 0
 
                 selected_scores = region_scores[score_mask]
-                selected_boxes = pred_boxes[score_mask]
+                selected_boxes = boxes[score_mask]
+
                 nms_mask = nms(selected_boxes, selected_scores, 0.4)
 
                 batch_pred_boxes.append(selected_boxes[nms_mask].cpu().numpy())
