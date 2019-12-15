@@ -3,7 +3,6 @@ import random
 from collections import defaultdict
 from datetime import datetime
 
-import chainercv.transforms as T
 import numpy as np
 import torch
 from albumentations import BboxParams, Compose, HorizontalFlip, LongestMaxSize
@@ -139,27 +138,6 @@ def filter_small_boxes(boxes, min_size):
     h = boxes[:, 3] - boxes[:, 1]
     mask = (w >= min_size) & (h >= min_size)
     return mask
-
-
-def hflip(img, boxes, gt_boxes=None):
-    """Flips image and related boxes horizontally."""
-    img = T.flip(img, y_flip=False, x_flip=True, copy=True)
-    boxes = T.flip_bbox(boxes, img[0].shape, y_flip=False, x_flip=True)
-    if gt_boxes is None:
-        return img, boxes, None
-    gt_boxes = T.flip_bbox(gt_boxes, img[0].shape, y_flip=False, x_flip=True)
-    return img, boxes, gt_boxes
-
-
-def scale(img, boxes, max_dim, gt_boxes=None):
-    """Scales image and related boxes."""
-    initial_size = img[0].shape
-    scaled_img = T.scale(img, max_dim, fit_short=False)
-    boxes = T.resize_bbox(boxes, initial_size, scaled_img[0].shape)
-    if gt_boxes is None:
-        return scaled_img, boxes, None
-    gt_boxes = T.resize_bbox(gt_boxes, initial_size, scaled_img[0].shape)
-    return scaled_img, boxes, gt_boxes
 
 
 def swap_axes(boxes):
