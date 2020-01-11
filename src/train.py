@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 from datetime import datetime
@@ -19,8 +20,20 @@ SCALES = [480, 576, 688, 864, 1200]
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train WSDDN model")
+    parser.add_argument("--seed", type=int, default=61, help="Seed to use")
+    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
+    parser.add_argument("--wd", type=float, default=5e-4, help="Weight decay")
+    parser.add_argument("--epochs", type=int, default=20, help="Epoch count")
+    parser.add_argument("--offset", type=int, default=0, help="Offset count")
+    parser.add_argument("--eval_period", type=int, default=10, help="Evaluation period")
+    parser.add_argument(
+        "--state_period", type=int, default=5, help="State saving period"
+    )
+    args = parser.parse_args()
+
     # Set the seed
-    SEED = 61
+    SEED = args.seed
     random.seed(SEED)
     os.environ["PYTHONHASHSEED"] = str(SEED)
     np.random.seed(SEED)
@@ -29,14 +42,14 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     # Set the hyperparameters
-    LR = 1e-5
-    WD = 5e-4
+    LR = args.lr
+    WD = args.wd
 
-    EPOCHS = 20
-    OFFSET = 0
+    EPOCHS = args.epochs
+    OFFSET = args.offset
 
-    EVAL_PER_EPOCH = 10
-    SAVE_STATE_PER_EPOCH = 5
+    EVAL_PERIOD = args.eval_period
+    STATE_PERIOD = args.state_period
 
     # Create dataset and data loader
     train_ds = VocAndEb("trainval", SCALES)  # len = 5011
@@ -88,14 +101,14 @@ if __name__ == "__main__":
 
             optimizer.step()
 
-        if epoch % SAVE_STATE_PER_EPOCH == 0:
+        if epoch % STATE_PERIOD == 0:
             path = f"../states/epoch_{epoch}.pt"
             torch.save(net.state_dict(), path)
             tqdm.write(f"State saved to {path}")
 
         tqdm.write(f"Avg loss is {epoch_loss / len(train_ds)}")
 
-        if epoch % EVAL_PER_EPOCH == 0:
+        if epoch % EVAL_PERIOD == 0:
             tqdm.write(f"Evaluation started at {datetime.now()}")
             evaluate(net, test_dl)
 
