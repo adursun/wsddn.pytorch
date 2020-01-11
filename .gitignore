@@ -7,20 +7,3 @@ data/*
 
 states/*
 !states/.gitkeep
-
-# Added for Python Pascal VOC Evaluator
-detections/
-groundtruths/
-tester/
-
-# Added for Detectron2
-detectron2/
-
-
-# Gokberk
-.devcontainer/
-.ipynb_checkpoints/
-Dockerfile.Jupyter
-eval.ipynb
-jupyter/
-
