@@ -9,7 +9,7 @@
 
 ```
 ./prepare.sh
-docker run --gpus all --ipc=host -v `pwd`:/ws -it wsddn.pytorch /bin/bash
+docker run --rm --gpus all --ipc=host -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 ```
 
 ## Jupyter
