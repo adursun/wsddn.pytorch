@@ -21,5 +21,5 @@ python src/train.py
 ## Evaluation Steps
 
 ```
-python src/evaluate.py --path=<state_dict_path>
+python src/evaluate.py --state_path=<state_dict_path>
 ```

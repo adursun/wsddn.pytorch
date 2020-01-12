@@ -12,11 +12,11 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained model")
-    parser.add_argument("--path", help="Path of trained model's state")
+    parser.add_argument("--state_path", help="Path of trained model's state")
     args = parser.parse_args()
 
     net = WSDDN()
-    net.load_state_dict(torch.load(args.path))
+    net.load_state_dict(torch.load(args.state_path))
     net.to(DEVICE)
 
     print("State is loaded")
