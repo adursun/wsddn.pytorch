@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from datasets import VocAndEb
 from network import WSDDN
-from utils import evaluate
+from utils import BASE_DIR, evaluate
 
 # Some constants
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -62,7 +62,8 @@ if __name__ == "__main__":
     net = WSDDN()
 
     if OFFSET != 0:
-        net.load_state_dict(torch.load(f"../states/epoch_{OFFSET}.pt"))
+        state_path = os.path.join(BASE_DIR, "states", f"epoch_{OFFSET}.pt")
+        net.load_state_dict(torch.load(state_path))
         print(f"Loaded epoch {OFFSET}'s state.")
 
     net.to(DEVICE)
@@ -102,8 +103,9 @@ if __name__ == "__main__":
             optimizer.step()
 
         if epoch % STATE_PERIOD == 0:
-            path = f"../states/epoch_{epoch}.pt"
-            torch.save(net.state_dict(), path)
+            torch.save(
+                net.state_dict(), os.path.join(BASE_DIR, "states", f"epoch_{epoch}.pt")
+            )
             tqdm.write(f"State saved to {path}")
 
         tqdm.write(f"Avg loss is {epoch_loss / len(train_ds)}")

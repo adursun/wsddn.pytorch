@@ -12,22 +12,14 @@
 docker run --rm --gpus all --ipc=host -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 ```
 
-## Jupyter
-
-```
-docker build -f Dockerfile.Jupyter -t wsddn.pytorch:jupyter .
-```
-
 ## Training Steps
 
 ```
-cd src
-python3 train.py
+python src/train.py
 ```
 
 ## Evaluation Steps
 
 ```
-cd src
-python3 evaluate.py --path=<state_dict_path>
+python src/evaluate.py --path=<state_dict_path>
 ```

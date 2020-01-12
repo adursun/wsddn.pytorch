@@ -1,8 +1,12 @@
+import os
+
 import torch
 import torch.nn.functional as F
 from torch import nn
 from torchvision.models import alexnet
 from torchvision.ops import roi_pool
+
+from utils import BASE_DIR
 
 
 class WSDDN(nn.Module):
@@ -10,7 +14,8 @@ class WSDDN(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.base.load_state_dict(torch.load("../states/alexnet-owt-4df8aa71.pth"))
+        alexnet_path = os.path.join(BASE_DIR, "states", "alexnet-owt-4df8aa71.pth")
+        self.base.load_state_dict(torch.load(alexnet_path))
         self.features = self.base.features[:-1]
         self.fcs = self.base.classifier[1:-1]
         self.fc_c = nn.Linear(4096, 20)

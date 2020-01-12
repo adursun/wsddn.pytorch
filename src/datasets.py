@@ -1,3 +1,4 @@
+import os
 import random
 import xml.etree.ElementTree as ET
 
@@ -7,7 +8,7 @@ from PIL import Image
 from scipy.io import loadmat
 from torch.utils.data import Dataset
 
-from utils import TRANSFORMS, filter_small_boxes, prepare, swap_axes
+from utils import BASE_DIR, TRANSFORMS, filter_small_boxes, prepare, swap_axes
 
 
 class VocAndEb(Dataset):
@@ -41,14 +42,23 @@ class VocAndEb(Dataset):
         self.split = split
         self.scales = scales
 
-        loaded_mat = loadmat(f"../data/EdgeBoxesVOC2007{self.split}.mat")
+        edge_boxes_path = os.path.join(
+            BASE_DIR, "data", f"EdgeBoxesVOC2007{self.split}.mat"
+        )
+        loaded_mat = loadmat(edge_boxes_path)
         self.eb_boxes = loaded_mat["boxes"][0]
         self.eb_scores = loaded_mat["boxScores"][0]
         self.ids = [str(id_[0]) for id_ in loaded_mat["images"][0]]
 
-        voc_dir = f"../data/VOC{self.split}_06-Nov-2007/VOCdevkit/VOC2007"
-        self.img_paths = [f"{voc_dir}/JPEGImages/{id_}.jpg" for id_ in self.ids]
-        self.annotation_paths = [f"{voc_dir}/Annotations/{id_}.xml" for id_ in self.ids]
+        voc_dir = os.path.join(
+            BASE_DIR, "data", f"VOC{self.split}_06-Nov-2007", "VOCdevkit", "VOC2007"
+        )
+        self.img_paths = [
+            os.path.join(voc_dir, "JPEGImages", f"{id_}.jpg") for id_ in self.ids
+        ]
+        self.annotation_paths = [
+            os.path.join(voc_dir, "Annotations", f"{id_}.xml") for id_ in self.ids
+        ]
 
     def get_boxes_and_scores(self, i):
         # (box_count, 4)
