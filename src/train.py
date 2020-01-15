@@ -103,8 +103,9 @@ if __name__ == "__main__":
             optimizer.step()
 
         if epoch % STATE_PERIOD == 0:
+            path = os.path.join(BASE_DIR, "states", f"epoch_{epoch}.pt")
             torch.save(
-                net.state_dict(), os.path.join(BASE_DIR, "states", f"epoch_{epoch}.pt")
+                net.state_dict(), path
             )
             tqdm.write(f"State saved to {path}")
 
