@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from datasets import VocAndEb
 from network import WSDDN
-from utils import BASE_DIR, evaluate
+from utils import BASE_DIR, evaluate, set_seed
 
 # Some constants
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -33,13 +33,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Set the seed
-    SEED = args.seed
-    random.seed(SEED)
-    os.environ["PYTHONHASHSEED"] = str(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
-    torch.backends.cudnn.deterministic = True
+    set_seed(args.seed)
 
     # Set the hyperparameters
     LR = args.lr
@@ -104,9 +98,7 @@ if __name__ == "__main__":
 
         if epoch % STATE_PERIOD == 0:
             path = os.path.join(BASE_DIR, "states", f"epoch_{epoch}.pt")
-            torch.save(
-                net.state_dict(), path
-            )
+            torch.save(net.state_dict(), path)
             tqdm.write(f"State saved to {path}")
 
         tqdm.write(f"Avg loss is {epoch_loss / len(train_ds)}")

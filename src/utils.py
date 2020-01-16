@@ -29,6 +29,15 @@ TRANSFORMS = transforms.Compose(
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def set_seed(seed):
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
 def get_aug(aug):
     return Compose(
         aug, bbox_params=BboxParams(format="pascal_voc", label_fields=["gt_labels"])
