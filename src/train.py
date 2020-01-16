@@ -58,7 +58,7 @@ if __name__ == "__main__":
     if OFFSET != 0:
         state_path = os.path.join(BASE_DIR, "states", f"epoch_{OFFSET}.pt")
         net.load_state_dict(torch.load(state_path))
-        print(f"Loaded epoch {OFFSET}'s state.")
+        tqdm.write(f"Loaded epoch {OFFSET}'s state.")
 
     net.to(DEVICE)
     net.train()

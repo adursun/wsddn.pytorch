@@ -142,8 +142,8 @@ def evaluate(net, dataloader):
             use_07_metric=True,
         )
 
-        print("Avg ap:", result["ap"])
-        print("Avg map:", result["map"])
+        tqdm.write(f"Avg AP: {result['ap']}")
+        tqdm.write(f"Avg mAP: {result['map']}")
 
         net.train()
 

@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import VocAndEb
 from network import WSDDN
@@ -19,7 +20,7 @@ if __name__ == "__main__":
     net.load_state_dict(torch.load(args.state_path))
     net.to(DEVICE)
 
-    print("State is loaded")
+    tqdm.write("State is loaded")
 
     test_ds = VocAndEb("test", SCALES)  # len = 4952
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
