@@ -10,10 +10,9 @@ from utils import BASE_DIR
 
 
 class WSDDN(nn.Module):
-    base = alexnet(pretrained=False)
-
     def __init__(self):
         super().__init__()
+        self.base = alexnet(pretrained=False)
         alexnet_path = os.path.join(BASE_DIR, "states", "alexnet-owt-4df8aa71.pth")
         self.base.load_state_dict(torch.load(alexnet_path))
         self.features = self.base.features[:-1]
