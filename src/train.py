@@ -21,6 +21,9 @@ SCALES = [480, 576, 688, 864, 1200]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train WSDDN model")
+    parser.add_argument(
+        "--base_net", type=str, default="alexnet", help="Base network to use"
+    )
     parser.add_argument("--seed", type=int, default=61, help="Seed to use")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
     parser.add_argument("--wd", type=float, default=5e-4, help="Weight decay")
@@ -53,7 +56,7 @@ if __name__ == "__main__":
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
 
     # Create the network
-    net = WSDDN()
+    net = WSDDN(base_net=args.base_net)
 
     if OFFSET != 0:
         state_path = os.path.join(BASE_DIR, "states", f"epoch_{OFFSET}.pt")
@@ -97,7 +100,7 @@ if __name__ == "__main__":
             optimizer.step()
 
         if epoch % STATE_PERIOD == 0:
-            path = os.path.join(BASE_DIR, "states", f"epoch_{epoch}.pt")
+            path = os.path.join(BASE_DIR, "states", f"{net.base_net}_epoch_{epoch}.pt")
             torch.save(net.state_dict(), path)
             tqdm.write(f"State saved to {path}")
 
