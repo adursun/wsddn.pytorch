@@ -37,7 +37,7 @@ class VocAndEb(Dataset):
     }
 
     def __init__(self, split, scales):
-        assert split in ["trainval", "test"], "`split` should be in [trainval, test]"
+        assert split in {"trainval", "test"}, "`split` should be in {trainval, test}"
 
         self.split = split
         self.scales = scales
