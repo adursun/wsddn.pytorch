@@ -36,7 +36,7 @@ class VocAndEb(Dataset):
         "tvmonitor": 19,
     }
 
-    def __init__(self, split, scales):
+    def __init__(self, split, scales=[480, 576, 688, 864, 1200]):
         assert split in {"trainval", "test"}, "`split` should be in {trainval, test}"
 
         self.split = split

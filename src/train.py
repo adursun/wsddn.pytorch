@@ -16,7 +16,6 @@ from utils import BASE_DIR, evaluate, set_seed
 
 # Some constants
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-SCALES = [480, 576, 688, 864, 1200]
 
 
 if __name__ == "__main__":
@@ -49,8 +48,8 @@ if __name__ == "__main__":
     STATE_PERIOD = args.state_period
 
     # Create dataset and data loader
-    train_ds = VocAndEb("trainval", SCALES)  # len = 5011
-    test_ds = VocAndEb("test", SCALES)  # len = 4952
+    train_ds = VocAndEb("trainval")  # len = 5011
+    test_ds = VocAndEb("test")  # len = 4952
 
     train_dl = DataLoader(train_ds, batch_size=1, shuffle=True, num_workers=4)
     test_dl = DataLoader(test_ds, batch_size=None, shuffle=False, num_workers=4)
