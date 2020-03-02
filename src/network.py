@@ -10,7 +10,7 @@ from utils import BASE_DIR
 
 
 class WSDDN(nn.Module):
-    def __init__(self, base_net="alexnet"):
+    def __init__(self, base_net="vgg"):
         super().__init__()
 
         assert base_net in {"alexnet", "vgg"}, "`base_net` should be in {alexnet, vgg}"

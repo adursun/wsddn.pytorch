@@ -21,7 +21,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train WSDDN model")
     parser.add_argument(
-        "--base_net", type=str, default="alexnet", help="Base network to use"
+        "--base_net", type=str, default="vgg", help="Base network to use"
     )
     parser.add_argument("--seed", type=int, default=61, help="Seed to use")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")

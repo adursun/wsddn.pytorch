@@ -13,7 +13,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate trained model")
     parser.add_argument(
-        "--base_net", type=str, default="alexnet", help="Base network to use"
+        "--base_net", type=str, default="vgg", help="Base network to use"
     )
     parser.add_argument("--state_path", help="Path of trained model's state")
     args = parser.parse_args()
