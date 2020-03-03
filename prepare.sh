@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # download and extract VOC 2007 trainval split
 wget http://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar -P data/
 mkdir data/VOCtrainval_06-Nov-2007
