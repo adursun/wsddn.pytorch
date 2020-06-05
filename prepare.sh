@@ -20,9 +20,8 @@ wget https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth -P states/
 # download pretrained VGG weights
 wget https://download.pytorch.org/models/vgg16-397923af.pth -P states/
 
-# download pretrained wsddn weights
-wget https://www.dropbox.com/s/rpti37b6afsnb62/pretrained.zip -P states/
-unzip states/pretrained.zip -d states/.
+# download pretrained alexnet based wsddn weights
+wget https://www.dropbox.com/s/lifv1ywa98a2p4y/alexnet_epoch_20.pt -P states/
 
 # build the docker image
 docker build . -t wsddn.pytorch
