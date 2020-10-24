@@ -1,12 +1,16 @@
 #!/bin/bash
 
 # download and extract VOC 2007 trainval split
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar -P data/
+# use one of the following
+#wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar -P data/
+wget http://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar -P data/
 mkdir data/VOCtrainval_06-Nov-2007
 tar xf data/VOCtrainval_06-Nov-2007.tar --directory data/VOCtrainval_06-Nov-2007/
 
 # download and extract VOC 2007 test split
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar -P data/
+# use one of the following
+#wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar -P data/
+wget http://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar -P data/
 mkdir data/VOCtest_06-Nov-2007
 tar xf data/VOCtest_06-Nov-2007.tar --directory data/VOCtest_06-Nov-2007/
 
