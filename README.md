@@ -50,5 +50,6 @@ python src/train.py --base_net vgg
 
 ```bash
 # for VGG based model
+# run `wget "https://www.dropbox.com/s/xyi4hgms6y3ldmj/vgg_epoch_20.pt?dl=1" -P states/` to use pretrained weights
 python src/evaluate.py --base_net vgg --state_path states/vgg_epoch_20.pt
 ```
