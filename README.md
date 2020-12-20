@@ -42,13 +42,13 @@ docker run --rm --gpus all --ipc=host -v `pwd`:/ws -it wsddn.pytorch /bin/bash
 ## Training Steps
 
 ```bash
-# for AlexNet based model
-python src/train.py --base_net alexnet
+# for VGG based model
+python src/train.py --base_net vgg
 ```
 
 ## Evaluation Steps
 
 ```bash
-# for AlexNet based model
-python src/evaluate.py --base_net alexnet --state_path states/alexnet_epoch_20.pt
+# for VGG based model
+python src/evaluate.py --base_net vgg --state_path states/vgg_epoch_20.pt
 ```
